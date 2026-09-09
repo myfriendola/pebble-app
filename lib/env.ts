@@ -3,13 +3,17 @@
 // browser; these are only read in server code (routes, server components,
 // server actions).
 
+// Trim values: pasting into the Vercel dashboard often leaves a trailing
+// newline or space, which would silently break an exact secret comparison.
+const clean = (v: string | undefined) => (v ?? "").trim();
+
 export const env = {
-  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
-  openaiModel: process.env.OPENAI_MODEL || "gpt-4o-mini",
-  supabaseUrl: process.env.SUPABASE_URL ?? "",
-  supabaseServiceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
-  captureSecret: process.env.CAPTURE_SECRET ?? "",
-  cronSecret: process.env.CRON_SECRET ?? "",
+  openaiApiKey: clean(process.env.OPENAI_API_KEY),
+  openaiModel: clean(process.env.OPENAI_MODEL) || "gpt-4o-mini",
+  supabaseUrl: clean(process.env.SUPABASE_URL),
+  supabaseServiceRoleKey: clean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+  captureSecret: clean(process.env.CAPTURE_SECRET),
+  cronSecret: clean(process.env.CRON_SECRET),
 };
 
 // True only when both Supabase values are present. When false, the app falls

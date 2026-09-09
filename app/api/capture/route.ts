@@ -44,16 +44,40 @@ function extractTimestamp(payload: unknown): string {
   return new Date().toISOString();
 }
 
-export async function POST(req: Request) {
-  // Secret check.
+// Shared secret check for the ?secret= query param. Returns an error response
+// to send back, or null when the secret is valid.
+function checkSecret(req: Request): NextResponse | null {
   if (!env.captureSecret) {
-    return NextResponse.json({ error: "capture secret not configured" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: "CAPTURE_SECRET is not set on this deployment" },
+      { status: 500 },
+    );
   }
-  const url = new URL(req.url);
-  const provided = url.searchParams.get("secret") ?? "";
+  const provided = (new URL(req.url).searchParams.get("secret") ?? "").trim();
   if (provided !== env.captureSecret) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { ok: false, error: "secret did not match CAPTURE_SECRET" },
+      { status: 401 },
+    );
   }
+  return null;
+}
+
+// GET is a browser-testable health check: visit
+//   https://<app>/api/capture?secret=YOUR_SECRET
+// and you'll see plainly whether the secret matches. It never writes anything.
+export async function GET(req: Request) {
+  const denied = checkSecret(req);
+  if (denied) return denied;
+  return NextResponse.json(
+    { ok: true, ready: true, message: "Capture endpoint is ready — the ring can POST here." },
+    { status: 200 },
+  );
+}
+
+export async function POST(req: Request) {
+  const denied = checkSecret(req);
+  if (denied) return denied;
 
   // Parse the body leniently (JSON, form, or plain text).
   let payload: unknown = null;
