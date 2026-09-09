@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { env } from "@/lib/env";
+import { env, hasSupabase, hasOpenAI } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -69,10 +69,48 @@ function checkSecret(req: Request): NextResponse | null {
 export async function GET(req: Request) {
   const denied = checkSecret(req);
   if (denied) return denied;
-  return NextResponse.json(
-    { ok: true, ready: true, message: "Capture endpoint is ready — the ring can POST here." },
-    { status: 200 },
-  );
+
+  // Secret-gated diagnostic: which config the deployment found, and whether a
+  // live read of `captures` works — so the exact DB reason is visible in a
+  // browser without needing the ring. Reveals no secret values.
+  const diagnostics: Record<string, unknown> = {
+    ok: true,
+    ready: true,
+    supabaseConfigured: hasSupabase,
+    supabaseUrlFrom: process.env.SUPABASE_URL
+      ? "SUPABASE_URL"
+      : process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? "NEXT_PUBLIC_SUPABASE_URL"
+        : "none",
+    serverKeyFrom: process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? "SUPABASE_SERVICE_ROLE_KEY"
+      : process.env.SUPABASE_SECRET_KEY
+        ? "SUPABASE_SECRET_KEY"
+        : "none",
+    openaiConfigured: hasOpenAI,
+  };
+
+  const supabase = getSupabase();
+  if (!supabase) {
+    diagnostics.database = {
+      ok: false,
+      reason: "no Supabase URL/key found in this deployment's environment",
+    };
+    return NextResponse.json(diagnostics, { status: 200 });
+  }
+
+  try {
+    const { count, error } = await supabase
+      .from("captures")
+      .select("*", { count: "exact", head: true });
+    diagnostics.database = error
+      ? { ok: false, detail: error.message, code: error.code, hint: error.hint }
+      : { ok: true, capturesRows: count };
+  } catch (e) {
+    diagnostics.database = { ok: false, detail: String(e) };
+  }
+
+  return NextResponse.json(diagnostics, { status: 200 });
 }
 
 export async function POST(req: Request) {
