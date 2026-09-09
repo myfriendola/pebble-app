@@ -114,12 +114,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "database not configured" }, { status: 500 });
   }
 
-  const { error } = await supabase
-    .from("captures")
-    .insert({ transcript, captured_at, processed: false });
+  try {
+    const { error } = await supabase
+      .from("captures")
+      .insert({ transcript, captured_at, processed: false });
 
-  if (error) {
-    return NextResponse.json({ error: "could not store capture" }, { status: 500 });
+    if (error) {
+      // Surface the real Postgres/PostgREST reason so the ring's "Recent runs"
+      // shows exactly what's wrong (e.g. missing table, bad key) rather than a
+      // generic message. Only callers who already hold CAPTURE_SECRET see this.
+      console.error("capture insert failed:", error);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "could not store capture",
+          detail: error.message,
+          code: error.code,
+          hint: error.hint,
+        },
+        { status: 500 },
+      );
+    }
+  } catch (e) {
+    console.error("capture insert threw:", e);
+    return NextResponse.json(
+      { ok: false, error: "could not store capture", detail: String(e) },
+      { status: 500 },
+    );
   }
 
   return NextResponse.json({ ok: true }, { status: 200 });
