@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base: warm paper, calm ink, gentle rendering ─────────────────────────── */
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: theme("colors.paper");
+    color: theme("colors.ink.DEFAULT");
+    font-family: theme("fontFamily.sans");
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: theme("colors.sage.tint");
+    color: theme("colors.sage.DEFAULT");
+  }
+
+  /* Quiet, calm focus rings — sage, never loud. */
+  :focus-visible {
+    outline: 2px solid theme("colors.sage.ring");
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* ── Small, reusable pieces of the design language ────────────────────────── */
+@layer components {
+  /* 11–12px uppercase, letter-spaced, muted — the app's quiet labels. */
+  .label {
+    @apply font-sans text-[11px] uppercase tracking-label text-ink-muted;
+  }
+
+  /* The user's own words: serif, roomy line-height. */
+  .prose-serif {
+    @apply font-serif text-[16.5px] leading-[1.6] text-ink;
+  }
+
+  /* The app's gentler voice: serif italic, secondary — distinct from the user's. */
+  .prose-question {
+    @apply font-serif italic text-ink-secondary;
+  }
+
+  .hairline {
+    @apply border-hairline;
+  }
+
+  /* Tag pills. */
+  .tag {
+    @apply inline-flex items-center rounded-pill px-2.5 py-0.5 text-[11px] tracking-label uppercase font-sans;
+  }
+  .tag-work {
+    @apply text-sage bg-sage-tint;
+  }
+  .tag-life {
+    @apply text-ink-secondary bg-panel;
+  }
+  .tag-theme {
+    @apply text-ink-secondary bg-panel;
+  }
+}
+
+/* Honor a reader's request for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
