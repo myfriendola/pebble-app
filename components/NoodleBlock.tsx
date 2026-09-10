@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { NoodleKind } from "@/lib/types";
 import { OpenAsPageLink } from "./ui";
 
 interface Turn {
@@ -9,14 +10,16 @@ interface Turn {
 }
 
 export function NoodleBlock({
-  thoughtId,
-  thoughtText,
+  targetKind,
+  targetId,
+  text,
   initialQuestion,
   initialReply = null,
   openAsPageHref,
 }: {
-  thoughtId: string;
-  thoughtText: string;
+  targetKind: NoodleKind;
+  targetId: string;
+  text: string;
   initialQuestion?: string | null;
   initialReply?: string | null;
   openAsPageHref?: string;
@@ -37,7 +40,7 @@ export function NoodleBlock({
     fetch("/api/noodle", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ thoughtId, thoughtText }),
+      body: JSON.stringify({ kind: targetKind, id: targetId, text }),
     })
       .then((r) => r.json())
       .then((d: { question?: string }) => {
@@ -47,7 +50,7 @@ export function NoodleBlock({
         setTurns([{ question: "What's underneath this one, if you sit with it a moment?", reply: null }]);
       })
       .finally(() => setLoading(false));
-  }, [initialQuestion, thoughtId, thoughtText]);
+  }, [initialQuestion, targetKind, targetId, text]);
 
   const latest = turns[turns.length - 1];
   const canReply = latest && latest.reply === null;
@@ -66,8 +69,9 @@ export function NoodleBlock({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          thoughtId,
-          thoughtText,
+          kind: targetKind,
+          id: targetId,
+          text,
           reply: answered[answered.length - 1].reply,
           priorQuestion,
           history: answered.map((t) => ({ question: t.question, reply: t.reply })),

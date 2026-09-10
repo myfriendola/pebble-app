@@ -38,8 +38,9 @@ export default async function ThoughtPage({ params }: { params: { id: string } }
 
       <div className="mt-8">
         <NoodleBlock
-          thoughtId={thought.id}
-          thoughtText={thought.text}
+          targetKind="thought"
+          targetId={thought.id}
+          text={thought.text}
           initialQuestion={thought.noodle?.prompt ?? null}
           initialReply={thought.noodle?.reply ?? null}
         />

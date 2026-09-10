@@ -1,9 +1,9 @@
 # Pebble
 
 A calm, personal reflection app. Voice-note transcriptions arrive from a Pebble
-Index 01 ring via webhook; each note is sorted into a **task** or a **thought**
-(and **work** or **life**), and nightly / weekly / monthly jobs write gentle
-reflections. Single user, no login for v1.
+Index 01 ring via webhook; each note is sorted into a **task**, a **thought**, or
+an **idea** (and **work** or **life**), and nightly / weekly / monthly jobs write
+gentle reflections. Single user, no login for v1.
 
 Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-app-build-guide-online.md).
 
@@ -17,9 +17,10 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
 ## Going live (all in the browser)
 
 1. **Run the schema.** In Supabase → SQL Editor, paste all of
-   [`schema.sql`](./schema.sql) and **Run**. It creates every table and seeds a
-   few gentle example rows (delete the `SEED DATA` block at the bottom first to
-   start empty).
+   [`schema.sql`](./schema.sql) and **Run**. It creates every table (no seed
+   data — the app starts empty and fills as you capture notes).
+   *Already ran an earlier version?* Run [`migration.sql`](./migration.sql)
+   instead — it adds just the new `ideas` table and `noodles.idea_id`.
 2. **Set the five environment variables** in Vercel → Project → Settings →
    Environment Variables (see [`.env.example`](./.env.example)):
    - `OPENAI_API_KEY`
@@ -33,8 +34,8 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
    `https://<your-app>.vercel.app/api/capture?secret=YOUR_CAPTURE_SECRET`
    and have it send the transcription on each recording.
 
-Until the env vars are set, the screens render seeded sample content so the
-design is always visible.
+Until the env vars are set, the screens render in-app sample content so the
+design is always visible; once Supabase is connected they show your real data.
 
 ## How it runs
 

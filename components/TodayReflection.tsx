@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Digest, ReviewItem } from "@/lib/types";
+import { resolveReview, type ReviewDecision } from "@/app/actions";
 
 // The evening bloom: the top of Today deepening into the full daily reflection.
 // A warm paper panel — narrative, one question to sit with, and one quiet
-// actionable row into the review queue.
+// actionable row into the review queue, where "to check" items can be filed.
 export function TodayReflection({
   digest,
-  reviewCount,
   reviewItems,
 }: {
   digest: Digest;
@@ -17,7 +17,16 @@ export function TodayReflection({
   reviewItems: ReviewItem[];
 }) {
   const [openReview, setOpenReview] = useState(false);
+  const [items, setItems] = useState(reviewItems);
+  const [pending, startTransition] = useTransition();
   const question = digest.questions[0];
+
+  function resolve(id: string, decision: ReviewDecision) {
+    setItems((prev) => prev.filter((i) => i.id !== id)); // optimistic
+    startTransition(() => {
+      void resolveReview(id, decision);
+    });
+  }
 
   return (
     <section className="animate-fade-in-slow rounded-card bg-panel px-6 py-7 sm:px-8 sm:py-8">
@@ -32,7 +41,7 @@ export function TodayReflection({
         </div>
       ) : null}
 
-      {reviewCount > 0 ? (
+      {items.length > 0 ? (
         <div className="mt-7 border-t border-hairline pt-4">
           <button
             onClick={() => setOpenReview((v) => !v)}
@@ -43,7 +52,7 @@ export function TodayReflection({
               Review how today sorted
             </span>
             <span className="flex items-center gap-2">
-              <span className="tag tag-work">{reviewCount} to check</span>
+              <span className="tag tag-work">{items.length} to check</span>
               <ChevronRight
                 size={16}
                 strokeWidth={1.5}
@@ -56,11 +65,11 @@ export function TodayReflection({
           </button>
 
           {openReview ? (
-            <div className="mt-4 space-y-4 animate-fade-in">
+            <div className="mt-4 space-y-5 animate-fade-in">
               <p className="font-sans text-[12px] text-ink-muted">
-                These weren&rsquo;t clear enough to sort on their own — a glance is all they need.
+                These weren&rsquo;t clear enough to sort on their own — file each with a tap.
               </p>
-              {reviewItems.map((item) => {
+              {items.map((item) => {
                 const g = item.best_guess;
                 const guess = g
                   ? [g.type, g.domain].filter(Boolean).join(" · ") +
@@ -74,6 +83,25 @@ export function TodayReflection({
                       {item.transcript ?? g?.note ?? "—"}
                     </p>
                     {guess ? <div className="label mt-1.5">best guess: {guess}</div> : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                      <span className="label">File as</span>
+                      <ResolveButton onClick={() => resolve(item.id, "task")} disabled={pending}>
+                        task
+                      </ResolveButton>
+                      <ResolveButton onClick={() => resolve(item.id, "thought")} disabled={pending}>
+                        thought
+                      </ResolveButton>
+                      <ResolveButton onClick={() => resolve(item.id, "idea")} disabled={pending}>
+                        idea
+                      </ResolveButton>
+                      <button
+                        onClick={() => resolve(item.id, "dismiss")}
+                        disabled={pending}
+                        className="font-sans text-[12px] text-ink-muted transition-colors hover:text-ink-secondary disabled:opacity-40"
+                      >
+                        dismiss
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -82,5 +110,25 @@ export function TodayReflection({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function ResolveButton({
+  onClick,
+  disabled,
+  children,
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="font-sans text-[12px] text-sage transition-opacity hover:opacity-70 disabled:opacity-40"
+    >
+      {children}
+    </button>
   );
 }

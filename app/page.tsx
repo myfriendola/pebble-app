@@ -2,6 +2,7 @@ import { getToday } from "@/lib/data";
 import { formatDayLong } from "@/lib/format";
 import { SectionLabel } from "@/components/ui";
 import { ThoughtStream } from "@/components/ThoughtStream";
+import { IdeaRow } from "@/components/IdeaRow";
 import { TodoList } from "@/components/TodoList";
 import { TodayReflection } from "@/components/TodayReflection";
 import { ProcessNowButton } from "@/components/ProcessNowButton";
@@ -42,6 +43,17 @@ export default async function TodayPage() {
           empty="Nothing spoken yet today. When a thought surfaces, it will rest here."
         />
       </section>
+
+      {today.ideasToday.length > 0 ? (
+        <section className="animate-fade-in">
+          <SectionLabel>Sparks today</SectionLabel>
+          <div className="divide-y divide-hairline">
+            {today.ideasToday.map((idea) => (
+              <IdeaRow key={idea.id} idea={idea} showThemes showDomain />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section className="animate-fade-in">
         <SectionLabel>To do</SectionLabel>

@@ -3,9 +3,10 @@
 // empty. Import only from server components / actions.
 
 import { getSupabase } from "./supabase";
-import type { Digest, ReviewItem, Task, Thought } from "./types";
+import type { Digest, Idea, ReviewItem, Task, Thought } from "./types";
 import {
   sampleDigests,
+  sampleIdeas,
   sampleLifeTasks,
   sampleReview,
   sampleThoughts,
@@ -22,26 +23,31 @@ function isToday(iso: string): boolean {
   return iso >= startOfToday();
 }
 
-// Attach the most recent noodle (question + reply) to each thought.
-async function attachNoodles(
+type Noodleable = { id: string; noodle?: { prompt: string; reply: string | null } | null };
+
+// Attach the most recent noodle (question + reply) to each thought or idea,
+// keyed by the given foreign-key column.
+async function attachNoodles<T extends Noodleable>(
   supabase: NonNullable<ReturnType<typeof getSupabase>>,
-  thoughts: Thought[],
-): Promise<Thought[]> {
-  if (thoughts.length === 0) return thoughts;
-  const ids = thoughts.map((t) => t.id);
+  items: T[],
+  column: "thought_id" | "idea_id",
+): Promise<T[]> {
+  if (items.length === 0) return items;
+  const ids = items.map((t) => t.id);
   const { data } = await supabase
     .from("noodles")
-    .select("thought_id, prompt, reply, created_at")
-    .in("thought_id", ids)
+    .select(`${column}, prompt, reply, created_at`)
+    .in(column, ids)
     .order("created_at", { ascending: false });
 
   const latest = new Map<string, { prompt: string; reply: string | null }>();
-  for (const row of data ?? []) {
-    if (!latest.has(row.thought_id)) {
-      latest.set(row.thought_id, { prompt: row.prompt, reply: row.reply });
+  for (const row of (data ?? []) as Record<string, string | null>[]) {
+    const key = row[column];
+    if (key && !latest.has(key)) {
+      latest.set(key, { prompt: row.prompt as string, reply: row.reply });
     }
   }
-  return thoughts.map((t) => ({ ...t, noodle: latest.get(t.id) ?? t.noodle ?? null }));
+  return items.map((t) => ({ ...t, noodle: latest.get(t.id) ?? t.noodle ?? null }));
 }
 
 export async function getAllThoughts(): Promise<Thought[]> {
@@ -53,9 +59,24 @@ export async function getAllThoughts(): Promise<Thought[]> {
       .select("id, text, themes, captured_at, created_at")
       .order("captured_at", { ascending: false });
     if (error || !data || data.length === 0) return sampleThoughts;
-    return attachNoodles(supabase, data as Thought[]);
+    return attachNoodles(supabase, data as Thought[], "thought_id");
   } catch {
     return sampleThoughts;
+  }
+}
+
+export async function getAllIdeas(): Promise<Idea[]> {
+  const supabase = getSupabase();
+  if (!supabase) return sampleIdeas;
+  try {
+    const { data, error } = await supabase
+      .from("ideas")
+      .select("id, text, themes, domain, captured_at, created_at")
+      .order("captured_at", { ascending: false });
+    if (error || !data || data.length === 0) return sampleIdeas;
+    return attachNoodles(supabase, data as Idea[], "idea_id");
+  } catch {
+    return sampleIdeas;
   }
 }
 
@@ -130,7 +151,7 @@ export async function getThoughtById(id: string): Promise<Thought | null> {
         .limit(1)
         .maybeSingle();
       if (data) {
-        const [withNoodle] = await attachNoodles(supabase, [data as Thought]);
+        const [withNoodle] = await attachNoodles(supabase, [data as Thought], "thought_id");
         return withNoodle;
       }
     } catch {
@@ -138,6 +159,27 @@ export async function getThoughtById(id: string): Promise<Thought | null> {
     }
   }
   return sampleThoughts.find((t) => t.id === id) ?? null;
+}
+
+export async function getIdeaById(id: string): Promise<Idea | null> {
+  const supabase = getSupabase();
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from("ideas")
+        .select("id, text, themes, domain, captured_at, created_at")
+        .eq("id", id)
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        const [withNoodle] = await attachNoodles(supabase, [data as Idea], "idea_id");
+        return withNoodle;
+      }
+    } catch {
+      /* fall through to sample lookup */
+    }
+  }
+  return sampleIdeas.find((t) => t.id === id) ?? null;
 }
 
 // A gentle serif sentence for the top of Today when there's no reflection yet.
@@ -161,20 +203,23 @@ export interface TodayData {
   dayLine: string;
   dailyDigest: Digest | null;
   thoughtsToday: Thought[];
+  ideasToday: Idea[];
   tasksToday: Task[];
   reviewItems: ReviewItem[];
   reviewCount: number;
 }
 
 export async function getToday(): Promise<TodayData> {
-  const [thoughts, tasks, digests, reviewItems] = await Promise.all([
+  const [thoughts, ideas, tasks, digests, reviewItems] = await Promise.all([
     getAllThoughts(),
+    getAllIdeas(),
     getTasks(),
     getDigests(),
     getReviewItems(),
   ]);
 
   const thoughtsToday = thoughts.filter((t) => isToday(t.captured_at));
+  const ideasToday = ideas.filter((t) => isToday(t.captured_at));
   const tasksToday = [...tasks.work, ...tasks.life]
     .filter((t) => t.status !== "done")
     .sort((a, b) => (a.captured_at < b.captured_at ? 1 : -1));
@@ -188,16 +233,18 @@ export async function getToday(): Promise<TodayData> {
     dayLine: dayLineFromThoughts(thoughts),
     dailyDigest,
     thoughtsToday: thoughtsToday.length > 0 ? thoughtsToday : thoughts.slice(0, 3),
+    ideasToday,
     tasksToday: tasksToday.slice(0, 5),
     reviewItems,
     reviewCount: reviewItems.length,
   };
 }
 
-// All distinct themes across thoughts, most-used first — for the Thoughts filter.
-export function collectThemes(thoughts: Thought[]): string[] {
+// All distinct themes across items with theme tags, most-used first — for the
+// Thoughts and Ideas filters.
+export function collectThemes(items: { themes: string[] }[]): string[] {
   const counts = new Map<string, number>();
-  for (const t of thoughts) {
+  for (const t of items) {
     for (const theme of t.themes) counts.set(theme, (counts.get(theme) ?? 0) + 1);
   }
   return Array.from(counts.entries())
