@@ -28,6 +28,8 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `CAPTURE_SECRET` — a long random string you invent
    - `CRON_SECRET` — another long random string
+   - `APP_PASSWORD` *(optional)* — set this to lock the app behind a password
+     (unlocks for 2 weeks per device); leave it unset and the app stays open
    Then **Redeploy**.
 3. **Point the ring at the webhook.** In the Pebble app → Index settings →
    Webhook, set the URL to

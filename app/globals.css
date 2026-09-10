@@ -66,6 +66,350 @@
   }
 }
 
+/* ══════════════════════════  PASSWORD GATE — glassmorphism lock + opening  ══════════════════════════ */
+
+/* A luminous sage→peach aura for the glass to refract. */
+.lk-aura {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.lk-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.9;
+  transition: opacity 0.9s ease;
+}
+.lk-blob.b1 {
+  width: 48vmax;
+  height: 48vmax;
+  left: -10vmax;
+  top: -12vmax;
+  background: #9fe1cb;
+  animation: lk-drift 16s ease-in-out infinite alternate;
+}
+.lk-blob.b2 {
+  width: 42vmax;
+  height: 42vmax;
+  right: -8vmax;
+  top: 4vmax;
+  background: #f3d8bf;
+  animation: lk-drift 16s ease-in-out -4s infinite alternate;
+}
+.lk-blob.b3 {
+  width: 40vmax;
+  height: 40vmax;
+  left: 12vmax;
+  bottom: -14vmax;
+  background: #e1f5ee;
+  animation: lk-drift 16s ease-in-out -8s infinite alternate;
+}
+.lk-blob.b4 {
+  width: 32vmax;
+  height: 32vmax;
+  right: 8vmax;
+  bottom: 0;
+  background: #fbeede;
+  animation: lk-drift 16s ease-in-out -12s infinite alternate;
+}
+
+/* Full-screen lock — covers the app and nav while locked. */
+.lk-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f5f1ea;
+  overflow: hidden;
+}
+
+.lk-glass {
+  position: relative;
+  width: min(400px, 100%);
+  text-align: center;
+  padding: 46px 40px 38px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(34px) saturate(185%);
+  -webkit-backdrop-filter: blur(34px) saturate(185%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow:
+    0 1px 1px rgba(255, 255, 255, 0.65) inset,
+    0 34px 80px -34px rgba(44, 44, 42, 0.5),
+    0 10px 30px -20px rgba(44, 44, 42, 0.35);
+  overflow: hidden;
+  animation: lk-rise 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.lk-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    147deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 34%,
+    rgba(255, 255, 255, 0) 60%
+  );
+  pointer-events: none;
+}
+.lk-glass > * {
+  position: relative;
+  z-index: 1;
+}
+.lk-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 20px;
+}
+.lk-stone {
+  width: 15px;
+  height: 12px;
+  border-radius: 60% 60% 55% 55% / 70% 70% 50% 50%;
+  background: #6d746b;
+  transform: rotate(-8deg);
+}
+.lk-wordmark {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 21px;
+  color: #2c2c2a;
+}
+.lk-tagline {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #5f5e5a;
+  margin: 0 auto 26px;
+  max-width: 27ch;
+}
+.lk-field {
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.28);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 13px;
+  padding: 0 6px 0 14px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+.lk-field:focus-within {
+  border-color: #5dcaa5;
+  background: rgba(255, 255, 255, 0.4);
+}
+.lk-field.shake {
+  animation: lk-shake 0.4s ease;
+  border-color: #c98a7a;
+}
+.lk-input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 15px;
+  color: #2c2c2a;
+  padding: 13px 6px 13px 0;
+  letter-spacing: 0.18em;
+}
+.lk-input::placeholder {
+  color: #888780;
+  letter-spacing: 0.02em;
+}
+.lk-open {
+  flex: none;
+  border: 0;
+  cursor: pointer;
+  width: 38px;
+  height: 38px;
+  border-radius: 9px;
+  background: #0f6e56;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.15s ease,
+    opacity 0.2s ease;
+}
+.lk-open:hover {
+  transform: translateX(1px);
+}
+.lk-open:active {
+  transform: scale(0.94);
+}
+.lk-open:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.lk-hint {
+  margin: 16px 0 0;
+  font-size: 12px;
+  color: #888780;
+  min-height: 1em;
+}
+.lk-hint.err {
+  color: #b06a58;
+}
+
+/* Opening sequence — a frosted veil that clears as a pebble ripples the app in. */
+.op-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background: rgba(245, 241, 234, 0.55);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  opacity: 1;
+  transition: opacity 0.75s ease;
+  pointer-events: none;
+}
+.op-veil.fade {
+  opacity: 0;
+}
+.op-center {
+  position: relative;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.op-ripples {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+.op-pebble {
+  width: 26px;
+  height: 20px;
+  border-radius: 60% 60% 54% 54% / 68% 68% 50% 50%;
+  background: #6d746b;
+  position: relative;
+  z-index: 2;
+  transform: translateY(-46px) scale(0.9);
+  opacity: 0;
+  animation: op-drop 0.62s cubic-bezier(0.34, 1.3, 0.5, 1) 0.12s forwards;
+}
+.op-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 26px;
+  margin: -13px 0 0 -17px;
+  border: 1.5px solid #5dcaa5;
+  border-radius: 50%;
+  transform: scale(0.2);
+  opacity: 0;
+  animation: op-ripple 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.op-ring.r2 {
+  animation-delay: 0.14s;
+  border-color: #9fe1cb;
+}
+.op-ring.r3 {
+  animation-delay: 0.28s;
+  border-color: #9fe1cb;
+}
+.op-word {
+  margin-top: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: op-bloom 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.62s forwards;
+}
+.op-name {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 34px;
+  color: #2c2c2a;
+}
+.op-greet {
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: #5f5e5a;
+  opacity: 0;
+  animation: op-bloom 0.8s ease 1.02s forwards;
+}
+
+@keyframes lk-drift {
+  from {
+    transform: translate(-3%, 2%) scale(1);
+  }
+  to {
+    transform: translate(4%, -3%) scale(1.1);
+  }
+}
+@keyframes lk-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes lk-shake {
+  10%,
+  90% {
+    transform: translateX(-2px);
+  }
+  30%,
+  70% {
+    transform: translateX(4px);
+  }
+  50% {
+    transform: translateX(-5px);
+  }
+}
+@keyframes op-drop {
+  0% {
+    transform: translateY(-46px) scale(0.9);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(0) scaleX(1.22) scaleY(0.74);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes op-ripple {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(3.1);
+    opacity: 0;
+  }
+}
+@keyframes op-bloom {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Honor a reader's request for less motion. */
 @media (prefers-reduced-motion: reduce) {
   *,
