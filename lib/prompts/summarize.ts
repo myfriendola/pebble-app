@@ -20,6 +20,7 @@ interface SummarizeInput {
   kind: DigestKind;
   thoughts: { text: string; themes: string[]; captured_at: string }[];
   tasks: { action: string; source_quote: string | null; domain: string }[];
+  ideas?: { text: string; themes: string[]; domain: string | null }[];
 }
 
 const WINDOW_FRAMING: Record<DigestKind, string> = {
@@ -32,10 +33,17 @@ const WINDOW_FRAMING: Record<DigestKind, string> = {
 
 // Assemble the user content the model reflects on. The system prompt stays
 // exactly as written; the window framing is added here for weekly/monthly.
-export function buildSummarizeUser({ kind, thoughts, tasks }: SummarizeInput): string {
+export function buildSummarizeUser({ kind, thoughts, tasks, ideas = [] }: SummarizeInput): string {
   const thoughtLines =
     thoughts.length > 0
       ? thoughts
+          .map((t) => `- ${t.text}${t.themes.length ? `  [${t.themes.join(", ")}]` : ""}`)
+          .join("\n")
+      : "- (none)";
+
+  const ideaLines =
+    ideas.length > 0
+      ? ideas
           .map((t) => `- ${t.text}${t.themes.length ? `  [${t.themes.join(", ")}]` : ""}`)
           .join("\n")
       : "- (none)";
@@ -51,6 +59,9 @@ export function buildSummarizeUser({ kind, thoughts, tasks }: SummarizeInput): s
 
 Thoughts:
 ${thoughtLines}
+
+Ideas:
+${ideaLines}
 
 Tasks:
 ${taskLines}`;

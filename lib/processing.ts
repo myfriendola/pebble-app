@@ -61,6 +61,15 @@ async function loadTasksSince(supabase: SupabaseClient, sinceIso: string) {
   ] as { action: string; source_quote: string | null; domain: string }[];
 }
 
+async function loadIdeasSince(supabase: SupabaseClient, sinceIso: string) {
+  const { data } = await supabase
+    .from("ideas")
+    .select("text, themes, domain")
+    .gte("captured_at", sinceIso)
+    .order("captured_at", { ascending: true });
+  return (data ?? []) as { text: string; themes: string[]; domain: string | null }[];
+}
+
 // Upsert a digest for a given kind + period_date (so re-runs update, not
 // duplicate).
 async function writeDigest(
@@ -146,6 +155,14 @@ export async function runNightly(): Promise<PipelineReport> {
           captured_at: capture.captured_at,
         });
         committed += 1;
+      } else if (item.type === "idea") {
+        await supabase.from("ideas").insert({
+          text: capture.transcript,
+          themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
+          domain: item.domain === "work" || item.domain === "life" ? item.domain : null,
+          captured_at: capture.captured_at,
+        });
+        committed += 1;
       } else {
         await supabase.from("thoughts").insert({
           text: capture.transcript,
@@ -162,16 +179,17 @@ export async function runNightly(): Promise<PipelineReport> {
   // Daily reflection over everything captured today (including what we just
   // committed).
   const since = startOfTodayIso();
-  const [thoughts, tasks] = await Promise.all([
+  const [thoughts, ideas, tasks] = await Promise.all([
     loadThoughtsSince(supabase, since),
+    loadIdeasSince(supabase, since),
     loadTasksSince(supabase, since),
   ]);
 
   let wroteDigest: DigestKind | null = null;
-  if (thoughts.length > 0 || tasks.length > 0) {
+  if (thoughts.length > 0 || ideas.length > 0 || tasks.length > 0) {
     const summary = await chatJson<SummaryResult>(
       SUMMARIZE_SYSTEM,
-      buildSummarizeUser({ kind: "daily", thoughts, tasks }),
+      buildSummarizeUser({ kind: "daily", thoughts, ideas, tasks }),
       { temperature: 0.7 },
     );
     if (summary) {
@@ -190,18 +208,19 @@ async function runWindow(kind: "weekly" | "monthly", days: number): Promise<Pipe
   if (!hasOpenAI) return { ok: false, reason: "OpenAI is not configured" };
 
   const since = new Date(Date.now() - days * 24 * 3600_000).toISOString();
-  const [thoughts, tasks] = await Promise.all([
+  const [thoughts, ideas, tasks] = await Promise.all([
     loadThoughtsSince(supabase, since),
+    loadIdeasSince(supabase, since),
     loadTasksSince(supabase, since),
   ]);
 
-  if (thoughts.length === 0 && tasks.length === 0) {
+  if (thoughts.length === 0 && ideas.length === 0 && tasks.length === 0) {
     return { ok: true, processed: 0, digest: null };
   }
 
   const summary = await chatJson<SummaryResult>(
     SUMMARIZE_SYSTEM,
-    buildSummarizeUser({ kind, thoughts, tasks }),
+    buildSummarizeUser({ kind, thoughts, ideas, tasks }),
     { temperature: 0.7 },
   );
 

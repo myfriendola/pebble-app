@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, MessageCircle, CheckSquare, Moon } from "lucide-react";
+import { Sun, MessageCircle, Lightbulb, CheckSquare, Moon } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Today", Icon: Sun },
   { href: "/thoughts", label: "Thoughts", Icon: MessageCircle },
+  { href: "/ideas", label: "Ideas", Icon: Lightbulb },
   { href: "/tasks", label: "Tasks", Icon: CheckSquare },
   { href: "/reflections", label: "Reflections", Icon: Moon },
 ] as const;

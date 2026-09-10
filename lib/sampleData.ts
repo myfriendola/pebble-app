@@ -4,7 +4,7 @@
 // mirror of it. Timestamps are relative to "now" so the daily reflection always
 // lands on Today.
 
-import type { Digest, ReviewItem, Task, Thought } from "./types";
+import type { Digest, Idea, ReviewItem, Task, Thought } from "./types";
 
 const now = Date.now();
 const hoursAgo = (h: number) => new Date(now - h * 3600_000).toISOString();
@@ -61,6 +61,41 @@ export const sampleThoughts: Thought[] = [
     text: "A slow morning with coffee and no plan. I should protect more of these.",
     themes: ["mornings"],
     captured_at: daysAgo(4, 7),
+  },
+];
+
+export const sampleIdeas: Idea[] = [
+  {
+    id: "i1",
+    text: "What if the reading lived on a shelf by the door — pick a book up on the way out, not the phone.",
+    themes: ["reading again", "mornings"],
+    domain: "life",
+    captured_at: hoursAgo(3),
+    noodle: {
+      prompt: "What's the smallest version of that you could try this week?",
+      reply: null,
+    },
+  },
+  {
+    id: "i2",
+    text: "An idea for the launch: a short, honest note to the first users instead of a polished announcement.",
+    themes: ["launch nerves", "writing"],
+    domain: "work",
+    captured_at: hoursAgo(6),
+  },
+  {
+    id: "i3",
+    text: "A monthly 'slow Sunday' — no plans on purpose, just to protect the mornings I keep noticing.",
+    themes: ["slowness", "mornings"],
+    domain: null,
+    captured_at: daysAgo(2, 5),
+  },
+  {
+    id: "i4",
+    text: "Maybe the app could nudge me to reread an old thought once a week, not just add new ones.",
+    themes: ["writing", "slowness"],
+    domain: "work",
+    captured_at: daysAgo(3, 2),
   },
 ];
 

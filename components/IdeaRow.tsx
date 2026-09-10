@@ -1,22 +1,22 @@
 "use client";
 
 import { useState } from "react";
-import type { Thought } from "@/lib/types";
+import type { Idea } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { Tag } from "./ui";
 import { NoodleBlock } from "./NoodleBlock";
 
-export function ThoughtRow({
-  thought,
+export function IdeaRow({
+  idea,
   showThemes = true,
-  startOpen = false,
+  showDomain = true,
 }: {
-  thought: Thought;
+  idea: Idea;
   showThemes?: boolean;
-  startOpen?: boolean;
+  showDomain?: boolean;
 }) {
-  const [open, setOpen] = useState(startOpen);
-  const hasThread = Boolean(thought.noodle?.prompt);
+  const [open, setOpen] = useState(false);
+  const hasThread = Boolean(idea.noodle?.prompt);
 
   return (
     <div className="py-5 first:pt-0 last:pb-0">
@@ -25,9 +25,9 @@ export function ThoughtRow({
         aria-expanded={open}
         className="group block w-full cursor-pointer text-left"
       >
-        <p className="prose-serif transition-colors group-hover:text-black">{thought.text}</p>
+        <p className="prose-serif transition-colors group-hover:text-black">{idea.text}</p>
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="label">{formatTime(thought.captured_at)}</span>
+          <span className="label">{formatTime(idea.captured_at)}</span>
           {hasThread ? (
             <span
               aria-hidden
@@ -35,8 +35,9 @@ export function ThoughtRow({
               className="h-1.5 w-1.5 rounded-full bg-sage-ring2"
             />
           ) : null}
+          {showDomain && idea.domain ? <Tag kind={idea.domain}>{idea.domain}</Tag> : null}
           {showThemes
-            ? thought.themes.map((theme) => (
+            ? idea.themes.map((theme) => (
                 <Tag key={theme} kind="theme">
                   {theme}
                 </Tag>
@@ -47,12 +48,12 @@ export function ThoughtRow({
 
       {open ? (
         <NoodleBlock
-          targetKind="thought"
-          targetId={thought.id}
-          text={thought.text}
-          initialQuestion={thought.noodle?.prompt ?? null}
-          initialReply={thought.noodle?.reply ?? null}
-          openAsPageHref={`/thoughts/${thought.id}`}
+          targetKind="idea"
+          targetId={idea.id}
+          text={idea.text}
+          initialQuestion={idea.noodle?.prompt ?? null}
+          initialReply={idea.noodle?.reply ?? null}
+          openAsPageHref={`/ideas/${idea.id}`}
         />
       ) : null}
     </div>

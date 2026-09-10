@@ -21,6 +21,21 @@ export interface Thought {
   noodle?: { prompt: string; reply: string | null } | null;
 }
 
+// A spark worth exploring or making later. Themes like a thought, plus an
+// optional work/life domain.
+export interface Idea {
+  id: string;
+  text: string;
+  themes: string[];
+  domain: Domain | null;
+  captured_at: string;
+  created_at?: string;
+  noodle?: { prompt: string; reply: string | null } | null;
+}
+
+// What a noodle conversation can hang off of.
+export type NoodleKind = "thought" | "idea";
+
 export interface Task {
   id: string;
   action: string;
@@ -59,7 +74,7 @@ export interface ReviewItem {
 
 // The shape the sort prompt returns for a single note.
 export interface SortResult {
-  type: "task" | "thought";
+  type: "task" | "thought" | "idea";
   domain: Domain;
   action?: string | null;
   due?: string | null;

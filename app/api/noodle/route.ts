@@ -29,6 +29,10 @@ function fallbackQuestion(seed: string): string {
 
 export async function POST(req: Request) {
   let body: {
+    // New contract: { kind, id, text }. Older callers used thoughtId/thoughtText.
+    kind?: string;
+    id?: string;
+    text?: string;
     thoughtId?: string;
     thoughtText?: string;
     related?: string[];
@@ -42,13 +46,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad request" }, { status: 400 });
   }
 
-  const thoughtText = (body.thoughtText ?? "").trim();
-  if (!thoughtText) {
-    return NextResponse.json({ error: "thoughtText required" }, { status: 400 });
+  const text = (body.text ?? body.thoughtText ?? "").trim();
+  if (!text) {
+    return NextResponse.json({ error: "text required" }, { status: 400 });
   }
 
+  const id = body.id ?? body.thoughtId;
+  const column = body.kind === "idea" ? "idea_id" : "thought_id";
+
   const supabase = getSupabase();
-  const canPersist = supabase && body.thoughtId && UUID_RE.test(body.thoughtId);
+  const canPersist = Boolean(supabase && id && UUID_RE.test(id));
 
   // Save the user's reply against the question it answered (best-effort).
   if (canPersist && body.reply && body.reply.trim() && body.priorQuestion) {
@@ -56,7 +63,7 @@ export async function POST(req: Request) {
       await supabase!
         .from("noodles")
         .update({ reply: body.reply.trim() })
-        .eq("thought_id", body.thoughtId!)
+        .eq(column, id!)
         .eq("prompt", body.priorQuestion);
     } catch {
       /* ignore — reply persistence is non-critical */
@@ -64,13 +71,13 @@ export async function POST(req: Request) {
   }
 
   // Generate the next gentle question.
-  let question = fallbackQuestion(thoughtText);
+  let question = fallbackQuestion(text);
   if (hasOpenAI) {
     try {
       const result = await chatJson<{ question?: string }>(
         NOODLE_SYSTEM,
         buildNoodleUser({
-          thought: thoughtText,
+          thought: text,
           related: body.related,
           history: body.history,
         }),
@@ -85,7 +92,7 @@ export async function POST(req: Request) {
   // Persist the new question as an open turn (best-effort).
   if (canPersist) {
     try {
-      await supabase!.from("noodles").insert({ thought_id: body.thoughtId!, prompt: question });
+      await supabase!.from("noodles").insert({ [column]: id!, prompt: question });
     } catch {
       /* ignore */
     }
