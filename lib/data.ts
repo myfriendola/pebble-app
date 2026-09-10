@@ -50,6 +50,9 @@ async function attachNoodles<T extends Noodleable>(
   return items.map((t) => ({ ...t, noodle: latest.get(t.id) ?? t.noodle ?? null }));
 }
 
+// When Supabase is configured, always return the real rows — even an empty
+// list, so the screens show a calm empty state rather than sample content.
+// Sample data is only for the no-database preview.
 export async function getAllThoughts(): Promise<Thought[]> {
   const supabase = getSupabase();
   if (!supabase) return sampleThoughts;
@@ -58,10 +61,10 @@ export async function getAllThoughts(): Promise<Thought[]> {
       .from("thoughts")
       .select("id, text, themes, captured_at, created_at")
       .order("captured_at", { ascending: false });
-    if (error || !data || data.length === 0) return sampleThoughts;
-    return attachNoodles(supabase, data as Thought[], "thought_id");
+    if (error) return [];
+    return attachNoodles(supabase, (data ?? []) as Thought[], "thought_id");
   } catch {
-    return sampleThoughts;
+    return [];
   }
 }
 
@@ -73,10 +76,10 @@ export async function getAllIdeas(): Promise<Idea[]> {
       .from("ideas")
       .select("id, text, themes, domain, captured_at, created_at")
       .order("captured_at", { ascending: false });
-    if (error || !data || data.length === 0) return sampleIdeas;
-    return attachNoodles(supabase, data as Idea[], "idea_id");
+    if (error) return [];
+    return attachNoodles(supabase, (data ?? []) as Idea[], "idea_id");
   } catch {
-    return sampleIdeas;
+    return [];
   }
 }
 
@@ -90,12 +93,9 @@ export async function getTasks(): Promise<{ work: Task[]; life: Task[] }> {
     ]);
     const work = (w.data ?? []).map((t) => ({ ...t, domain: "work" as const }));
     const life = (l.data ?? []).map((t) => ({ ...t, domain: "life" as const }));
-    if (work.length === 0 && life.length === 0) {
-      return { work: sampleWorkTasks, life: sampleLifeTasks };
-    }
     return { work, life };
   } catch {
-    return { work: sampleWorkTasks, life: sampleLifeTasks };
+    return { work: [], life: [] };
   }
 }
 
@@ -108,10 +108,10 @@ export async function getDigests(): Promise<Digest[]> {
       .select("*")
       .order("period_date", { ascending: false })
       .order("created_at", { ascending: false });
-    if (error || !data || data.length === 0) return sampleDigests;
-    return data as Digest[];
+    if (error) return [];
+    return (data ?? []) as Digest[];
   } catch {
-    return sampleDigests;
+    return [];
   }
 }
 
@@ -123,7 +123,7 @@ export async function getReviewItems(): Promise<ReviewItem[]> {
       .from("review_queue")
       .select("id, capture_id, best_guess, created_at, captures(transcript)")
       .order("created_at", { ascending: false });
-    if (error || !data) return sampleReview;
+    if (error || !data) return [];
     return data.map((r) => ({
       id: r.id,
       capture_id: r.capture_id,
@@ -136,50 +136,48 @@ export async function getReviewItems(): Promise<ReviewItem[]> {
       created_at: r.created_at,
     }));
   } catch {
-    return sampleReview;
+    return [];
   }
 }
 
 export async function getThoughtById(id: string): Promise<Thought | null> {
   const supabase = getSupabase();
-  if (supabase) {
-    try {
-      const { data } = await supabase
-        .from("thoughts")
-        .select("id, text, themes, captured_at, created_at")
-        .eq("id", id)
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        const [withNoodle] = await attachNoodles(supabase, [data as Thought], "thought_id");
-        return withNoodle;
-      }
-    } catch {
-      /* fall through to sample lookup */
+  if (!supabase) return sampleThoughts.find((t) => t.id === id) ?? null;
+  try {
+    const { data } = await supabase
+      .from("thoughts")
+      .select("id, text, themes, captured_at, created_at")
+      .eq("id", id)
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      const [withNoodle] = await attachNoodles(supabase, [data as Thought], "thought_id");
+      return withNoodle;
     }
+  } catch {
+    /* not found */
   }
-  return sampleThoughts.find((t) => t.id === id) ?? null;
+  return null;
 }
 
 export async function getIdeaById(id: string): Promise<Idea | null> {
   const supabase = getSupabase();
-  if (supabase) {
-    try {
-      const { data } = await supabase
-        .from("ideas")
-        .select("id, text, themes, domain, captured_at, created_at")
-        .eq("id", id)
-        .limit(1)
-        .maybeSingle();
-      if (data) {
-        const [withNoodle] = await attachNoodles(supabase, [data as Idea], "idea_id");
-        return withNoodle;
-      }
-    } catch {
-      /* fall through to sample lookup */
+  if (!supabase) return sampleIdeas.find((t) => t.id === id) ?? null;
+  try {
+    const { data } = await supabase
+      .from("ideas")
+      .select("id, text, themes, domain, captured_at, created_at")
+      .eq("id", id)
+      .limit(1)
+      .maybeSingle();
+    if (data) {
+      const [withNoodle] = await attachNoodles(supabase, [data as Idea], "idea_id");
+      return withNoodle;
     }
+  } catch {
+    /* not found */
   }
-  return sampleIdeas.find((t) => t.id === id) ?? null;
+  return null;
 }
 
 // A gentle serif sentence for the top of Today when there's no reflection yet.
@@ -232,7 +230,7 @@ export async function getToday(): Promise<TodayData> {
     date: new Date().toISOString(),
     dayLine: dayLineFromThoughts(thoughts),
     dailyDigest,
-    thoughtsToday: thoughtsToday.length > 0 ? thoughtsToday : thoughts.slice(0, 3),
+    thoughtsToday,
     ideasToday,
     tasksToday: tasksToday.slice(0, 5),
     reviewItems,
