@@ -282,3 +282,15 @@ export function runWeekly(): Promise<PipelineReport> {
 export function runMonthly(): Promise<PipelineReport> {
   return runWindow("monthly", 31);
 }
+
+// Re-run the sort on a single piece of (edited) text and return the best guess.
+// Used when the user corrects an item's wording and we want to re-classify it.
+export async function analyzeText(text: string): Promise<SortResult | null> {
+  if (!hasOpenAI) return null;
+  try {
+    const parsed = await chatJson<unknown>(SORT_SYSTEM, buildSortUser([text]), { temperature: 0.2 });
+    return normalizeSortArray(parsed)[0] ?? null;
+  } catch {
+    return null;
+  }
+}
