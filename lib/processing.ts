@@ -102,8 +102,80 @@ async function writeDigest(
   }
 }
 
-// ── Nightly: sort unprocessed captures, then write the daily reflection. ──
-export async function runNightly(): Promise<PipelineReport> {
+// Sort one capture and file it into thoughts / ideas / work_tasks / life_tasks
+// (or review_queue when low-confidence), then mark it processed. Shared by the
+// nightly sweep and by sort-on-capture in the webhook. On a sort error the
+// capture is left unprocessed so a later run retries it.
+export async function sortAndFileCapture(
+  supabase: SupabaseClient,
+  capture: { id: string; transcript: string; captured_at: string },
+): Promise<{ committed: number; review: number; ok: boolean }> {
+  let items: SortResult[] = [];
+  try {
+    const parsed = await chatJson<unknown>(SORT_SYSTEM, buildSortUser([capture.transcript]), {
+      temperature: 0.2,
+    });
+    items = normalizeSortArray(parsed);
+  } catch {
+    return { committed: 0, review: 0, ok: false };
+  }
+
+  let committed = 0;
+  let review = 0;
+
+  for (const item of items) {
+    const confidence = typeof item.confidence === "number" ? item.confidence : 0;
+
+    if (confidence < CONFIDENCE_FLOOR) {
+      await supabase.from("review_queue").insert({
+        capture_id: capture.id,
+        best_guess: item as unknown as Record<string, unknown>,
+      });
+      review += 1;
+      continue;
+    }
+
+    if (item.type === "task") {
+      const table = item.domain === "work" ? "work_tasks" : "life_tasks";
+      await supabase.from(table).insert({
+        action: item.action ?? capture.transcript,
+        source_quote: item.source_quote ?? capture.transcript,
+        due: item.due ?? null,
+        priority: item.priority ?? null,
+        status: "open",
+        captured_at: capture.captured_at,
+      });
+      committed += 1;
+    } else if (item.type === "idea") {
+      await supabase.from("ideas").insert({
+        text: capture.transcript,
+        themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
+        domain: item.domain === "work" || item.domain === "life" ? item.domain : null,
+        captured_at: capture.captured_at,
+      });
+      committed += 1;
+    } else {
+      await supabase.from("thoughts").insert({
+        text: capture.transcript,
+        themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
+        captured_at: capture.captured_at,
+      });
+      committed += 1;
+    }
+  }
+
+  await supabase.from("captures").update({ processed: true }).eq("id", capture.id);
+  return { committed, review, ok: true };
+}
+
+// ── Nightly: sweep any unsorted captures, then write the daily reflection. ──
+// With sort-on-capture most notes are already filed, so the sweep is usually a
+// no-op and this mostly (re)writes the day's reflection. Pass
+// skipDailyIfUnchanged for a later same-day run that should refresh the
+// reflection only when new notes have arrived since it was last written.
+export async function runNightly(
+  opts: { skipDailyIfUnchanged?: boolean } = {},
+): Promise<PipelineReport> {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, reason: "Supabase is not configured" };
   if (!hasOpenAI) return { ok: false, reason: "OpenAI is not configured" };
@@ -119,65 +191,36 @@ export async function runNightly(): Promise<PipelineReport> {
   const pending = captures ?? [];
 
   for (const capture of pending) {
-    let items: SortResult[] = [];
-    try {
-      const parsed = await chatJson<unknown>(
-        SORT_SYSTEM,
-        buildSortUser([capture.transcript]),
-        { temperature: 0.2 },
-      );
-      items = normalizeSortArray(parsed);
-    } catch {
-      // Leave this capture unprocessed so the next run can retry it.
-      continue;
-    }
-
-    for (const item of items) {
-      const confidence = typeof item.confidence === "number" ? item.confidence : 0;
-
-      if (confidence < CONFIDENCE_FLOOR) {
-        await supabase.from("review_queue").insert({
-          capture_id: capture.id,
-          best_guess: item as unknown as Record<string, unknown>,
-        });
-        review += 1;
-        continue;
-      }
-
-      if (item.type === "task") {
-        const table = item.domain === "work" ? "work_tasks" : "life_tasks";
-        await supabase.from(table).insert({
-          action: item.action ?? capture.transcript,
-          source_quote: item.source_quote ?? capture.transcript,
-          due: item.due ?? null,
-          priority: item.priority ?? null,
-          status: "open",
-          captured_at: capture.captured_at,
-        });
-        committed += 1;
-      } else if (item.type === "idea") {
-        await supabase.from("ideas").insert({
-          text: capture.transcript,
-          themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
-          domain: item.domain === "work" || item.domain === "life" ? item.domain : null,
-          captured_at: capture.captured_at,
-        });
-        committed += 1;
-      } else {
-        await supabase.from("thoughts").insert({
-          text: capture.transcript,
-          themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
-          captured_at: capture.captured_at,
-        });
-        committed += 1;
-      }
-    }
-
-    await supabase.from("captures").update({ processed: true }).eq("id", capture.id);
+    const r = await sortAndFileCapture(supabase, capture);
+    committed += r.committed;
+    review += r.review;
   }
 
-  // Daily reflection over everything captured today (including what we just
-  // committed).
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // For a later same-day run: skip re-writing today's reflection if it already
+  // exists and nothing new has been captured since it was written.
+  if (opts.skipDailyIfUnchanged) {
+    const { data: existing } = await supabase
+      .from("digests")
+      .select("id, created_at")
+      .eq("kind", "daily")
+      .eq("period_date", todayStr)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      const { data: newer } = await supabase
+        .from("captures")
+        .select("id")
+        .gt("created_at", existing.created_at)
+        .limit(1);
+      if (!newer || newer.length === 0) {
+        return { ok: true, processed: pending.length, committed, review, digest: null };
+      }
+    }
+  }
+
+  // Daily reflection over everything captured today.
   const since = startOfTodayIso();
   const [thoughts, ideas, tasks] = await Promise.all([
     loadThoughtsSince(supabase, since),
@@ -193,7 +236,7 @@ export async function runNightly(): Promise<PipelineReport> {
       { temperature: 0.7 },
     );
     if (summary) {
-      await writeDigest(supabase, "daily", new Date().toISOString().slice(0, 10), summary, review);
+      await writeDigest(supabase, "daily", todayStr, summary, review);
       wroteDigest = "daily";
     }
   }

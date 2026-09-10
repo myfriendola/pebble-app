@@ -5,9 +5,11 @@
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import { env, hasSupabase, hasOpenAI } from "@/lib/env";
+import { sortAndFileCapture } from "@/lib/processing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 // Pull the transcription text out of whatever shape the webhook sends.
 function extractTranscript(payload: unknown): string | null {
@@ -152,10 +154,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "database not configured" }, { status: 500 });
   }
 
+  let inserted: { id: string; transcript: string; captured_at: string } | null = null;
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("captures")
-      .insert({ transcript, captured_at, processed: false });
+      .insert({ transcript, captured_at, processed: false })
+      .select("id, transcript, captured_at")
+      .single();
 
     if (error) {
       // Surface the real Postgres/PostgREST reason so the ring's "Recent runs"
@@ -173,6 +178,7 @@ export async function POST(req: Request) {
         { status: 500 },
       );
     }
+    inserted = data as { id: string; transcript: string; captured_at: string };
   } catch (e) {
     console.error("capture insert threw:", e);
     return NextResponse.json(
@@ -181,5 +187,19 @@ export async function POST(req: Request) {
     );
   }
 
-  return NextResponse.json({ ok: true }, { status: 200 });
+  // Sort-on-capture: file this note right away so it appears on the right
+  // screen within seconds. Best-effort — if it fails, the note stays saved
+  // (processed = false) and the nightly sweep will sort it. The daily
+  // reflection is still written on the evening schedule, not here.
+  let sorted = false;
+  if (inserted && hasOpenAI) {
+    try {
+      const r = await sortAndFileCapture(supabase, inserted);
+      sorted = r.ok;
+    } catch (e) {
+      console.error("sort-on-capture failed:", e);
+    }
+  }
+
+  return NextResponse.json({ ok: true, sorted }, { status: 200 });
 }
