@@ -5,11 +5,14 @@ import { Calendar } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { formatDue } from "@/lib/format";
 import { CheckRing } from "./CheckRing";
+import { ItemEditor } from "./ItemEditor";
 import { Whisper } from "./ui";
 
 function TaskRow({ task }: { task: Task }) {
   const [done, setDone] = useState(task.status === "done");
+  const [editing, setEditing] = useState(false);
   const due = formatDue(task.due);
+  const kind = task.domain === "work" ? "work_task" : "life_task";
 
   return (
     <div
@@ -20,20 +23,39 @@ function TaskRow({ task }: { task: Task }) {
     >
       <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
       <div className="min-w-0 flex-1">
-        <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
+        {editing ? (
+          <ItemEditor
+            kind={kind}
+            id={task.id}
+            initialText={task.source_quote ?? task.action}
+            textClassName="font-serif text-[15px] italic"
+            onDone={() => setEditing(false)}
+          />
+        ) : (
+          <>
+            <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
 
-        {due ? (
-          <div className="mt-1.5 flex items-center gap-1 text-ink-muted">
-            <Calendar size={12} strokeWidth={1.5} />
-            <span className="font-sans text-[12px]">{due}</span>
-          </div>
-        ) : null}
+            {due ? (
+              <div className="mt-1.5 flex items-center gap-1 text-ink-muted">
+                <Calendar size={12} strokeWidth={1.5} />
+                <span className="font-sans text-[12px]">{due}</span>
+              </div>
+            ) : null}
 
-        {task.source_quote ? (
-          <p className="mt-3 border-l-2 border-sage-tint pl-3 font-serif text-[15px] italic leading-[1.6] text-ink-secondary">
-            {task.source_quote}
-          </p>
-        ) : null}
+            {task.source_quote ? (
+              <p className="mt-3 border-l-2 border-sage-tint pl-3 font-serif text-[15px] italic leading-[1.6] text-ink-secondary">
+                {task.source_quote}
+              </p>
+            ) : null}
+
+            <button
+              onClick={() => setEditing(true)}
+              className="mt-2 font-sans text-[11px] uppercase tracking-label text-ink-muted transition-colors hover:text-sage"
+            >
+              Edit
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
