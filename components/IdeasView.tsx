@@ -3,24 +3,37 @@
 import { useMemo, useState } from "react";
 import type { Idea } from "@/lib/types";
 import { relativeDay } from "@/lib/format";
+import { buildThemeFacets, groupOf } from "@/lib/themes";
 import { IdeaRow } from "./IdeaRow";
+import { ThemeFilter, type ThemeValue } from "./ThemeFilter";
 import { Whisper } from "./ui";
 
 type DomainFilter = "all" | "work" | "life";
 
-export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }) {
+export function IdeasView({
+  ideas,
+  groupMap,
+}: {
+  ideas: Idea[];
+  groupMap: Record<string, string>;
+}) {
   const [domain, setDomain] = useState<DomainFilter>("all");
-  const [theme, setTheme] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ThemeValue>({ category: null, theme: null });
 
-  const filtered = useMemo(
-    () =>
-      ideas.filter(
-        (i) =>
-          (domain === "all" || i.domain === domain) &&
-          (theme === null || i.themes.includes(theme)),
-      ),
-    [ideas, domain, theme],
+  const inDomain = useMemo(
+    () => (domain === "all" ? ideas : ideas.filter((i) => i.domain === domain)),
+    [ideas, domain],
   );
+
+  // Theme facets reflect the current Work/Life scope.
+  const facets = useMemo(() => buildThemeFacets(inDomain, groupMap), [inDomain, groupMap]);
+
+  const filtered = useMemo(() => {
+    if (filter.theme) return inDomain.filter((i) => i.themes.includes(filter.theme!));
+    if (filter.category)
+      return inDomain.filter((i) => i.themes.some((t) => groupOf(t, groupMap) === filter.category));
+    return inDomain;
+  }, [inDomain, filter, groupMap]);
 
   const groups = useMemo(() => {
     const out: { day: string; items: Idea[] }[] = [];
@@ -33,6 +46,8 @@ export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }
     return out;
   }, [filtered]);
 
+  const active = filter.theme ?? filter.category;
+
   return (
     <div>
       {/* Work / Life / All — like Tasks. */}
@@ -40,7 +55,10 @@ export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }
         {(["all", "work", "life"] as const).map((d) => (
           <button
             key={d}
-            onClick={() => setDomain(d)}
+            onClick={() => {
+              setDomain(d);
+              setFilter({ category: null, theme: null });
+            }}
             aria-pressed={domain === d}
             className={[
               "rounded-pill px-4 py-1.5 font-sans text-[12px] uppercase tracking-label transition-colors",
@@ -52,19 +70,7 @@ export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }
         ))}
       </div>
 
-      {/* Theme filter pills — like Thoughts. */}
-      {themes.length > 0 ? (
-        <div className="mb-9 flex flex-wrap gap-2">
-          <FilterPill active={theme === null} onClick={() => setTheme(null)}>
-            all themes
-          </FilterPill>
-          {themes.map((t) => (
-            <FilterPill key={t} active={theme === t} onClick={() => setTheme(t)}>
-              {t}
-            </FilterPill>
-          ))}
-        </div>
-      ) : null}
+      {facets.length > 0 ? <ThemeFilter facets={facets} value={filter} onChange={setFilter} /> : null}
 
       {groups.length === 0 ? (
         <Whisper>No sparks here yet. When one lands, it will wait for you.</Whisper>
@@ -75,7 +81,12 @@ export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }
               <div className="label mb-4">{group.day}</div>
               <div className="divide-y divide-hairline">
                 {group.items.map((i) => (
-                  <IdeaRow key={i.id} idea={i} showThemes={theme === null} showDomain={domain === "all"} />
+                  <IdeaRow
+                    key={i.id}
+                    idea={i}
+                    showThemes={!active}
+                    showDomain={domain === "all"}
+                  />
                 ))}
               </div>
             </section>
@@ -83,30 +94,5 @@ export function IdeasView({ ideas, themes }: { ideas: Idea[]; themes: string[] }
         </div>
       )}
     </div>
-  );
-}
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        "rounded-pill border px-3.5 py-1.5 font-sans text-[12px] transition-colors",
-        active
-          ? "border-sage-ring2 bg-sage-tint text-sage"
-          : "border-hairline text-ink-muted hover:border-sage-ring hover:text-ink-secondary",
-      ].join(" ")}
-    >
-      {children}
-    </button>
   );
 }

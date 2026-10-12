@@ -20,3 +20,10 @@ create index if not exists ideas_captured_idx on ideas (captured_at desc);
 -- Let a noodle hang off an idea as well as a thought.
 alter table noodles add column if not exists idea_id uuid references ideas(id) on delete cascade;
 alter table noodles alter column thought_id drop not null;
+
+-- Theme tags clustered into higher-level groups (for the grouped theme filter).
+create table if not exists theme_groups (
+  theme       text primary key,
+  grp         text not null,
+  updated_at  timestamptz not null default now()
+);

@@ -3,24 +3,30 @@
 import { useMemo, useState } from "react";
 import type { Thought } from "@/lib/types";
 import { relativeDay } from "@/lib/format";
+import { buildThemeFacets, groupOf } from "@/lib/themes";
 import { ThoughtRow } from "./ThoughtRow";
+import { ThemeFilter, type ThemeValue } from "./ThemeFilter";
 import { Whisper } from "./ui";
 
 export function ThoughtsView({
   thoughts,
-  themes,
+  groupMap,
 }: {
   thoughts: Thought[];
-  themes: string[];
+  groupMap: Record<string, string>;
 }) {
-  const [active, setActive] = useState<string | null>(null);
+  const [filter, setFilter] = useState<ThemeValue>({ category: null, theme: null });
 
-  const filtered = useMemo(
-    () => (active ? thoughts.filter((t) => t.themes.includes(active)) : thoughts),
-    [thoughts, active],
-  );
+  const facets = useMemo(() => buildThemeFacets(thoughts, groupMap), [thoughts, groupMap]);
 
-  // Group by day, preserving the newest-first order.
+  const filtered = useMemo(() => {
+    if (filter.theme) return thoughts.filter((t) => t.themes.includes(filter.theme!));
+    if (filter.category)
+      return thoughts.filter((t) => t.themes.some((th) => groupOf(th, groupMap) === filter.category));
+    return thoughts;
+  }, [thoughts, filter, groupMap]);
+
+  // Group by day, newest first.
   const groups = useMemo(() => {
     const out: { day: string; items: Thought[] }[] = [];
     for (const t of filtered) {
@@ -32,25 +38,17 @@ export function ThoughtsView({
     return out;
   }, [filtered]);
 
+  const active = filter.theme ?? filter.category;
+
   return (
     <div>
-      {/* Theme filter pills — sage when active. */}
-      {themes.length > 0 ? (
-        <div className="mb-9 flex flex-wrap gap-2">
-          <FilterPill active={active === null} onClick={() => setActive(null)}>
-            all
-          </FilterPill>
-          {themes.map((theme) => (
-            <FilterPill key={theme} active={active === theme} onClick={() => setActive(theme)}>
-              {theme}
-            </FilterPill>
-          ))}
-        </div>
-      ) : null}
+      {facets.length > 0 ? <ThemeFilter facets={facets} value={filter} onChange={setFilter} /> : null}
 
       {active ? (
         <p className="mb-6 font-serif text-[16px] italic text-ink-muted">
-          Every time &ldquo;{active}&rdquo; has surfaced, gathered across days.
+          {filter.theme
+            ? `Every time “${filter.theme}” has surfaced, gathered across days.`
+            : `Thoughts across your ${filter.category!.toLowerCase()} threads.`}
         </p>
       ) : null}
 
@@ -63,7 +61,7 @@ export function ThoughtsView({
               <div className="label mb-4">{group.day}</div>
               <div className="divide-y divide-hairline">
                 {group.items.map((t) => (
-                  <ThoughtRow key={t.id} thought={t} showThemes={active === null} />
+                  <ThoughtRow key={t.id} thought={t} showThemes={!active} />
                 ))}
               </div>
             </section>
@@ -71,30 +69,5 @@ export function ThoughtsView({
         </div>
       )}
     </div>
-  );
-}
-
-function FilterPill({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      aria-pressed={active}
-      className={[
-        "rounded-pill border px-3.5 py-1.5 font-sans text-[12px] transition-colors",
-        active
-          ? "border-sage-ring2 bg-sage-tint text-sage"
-          : "border-hairline text-ink-muted hover:border-sage-ring hover:text-ink-secondary",
-      ].join(" ")}
-    >
-      {children}
-    </button>
   );
 }

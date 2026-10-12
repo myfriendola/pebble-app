@@ -95,6 +95,14 @@ create table if not exists review_queue (
   created_at  timestamptz not null default now()
 );
 
+-- Theme tags clustered into higher-level groups (rebuilt nightly) so the theme
+-- filter stays browsable as the vocabulary grows.
+create table if not exists theme_groups (
+  theme       text primary key,
+  grp         text not null,
+  updated_at  timestamptz not null default now()
+);
+
 -- Helpful indexes for the day / stream / reflection queries.
 create index if not exists captures_processed_idx  on captures (processed, captured_at);
 create index if not exists thoughts_captured_idx    on thoughts (captured_at desc);

@@ -36,6 +36,13 @@ export interface Idea {
 // What a noodle conversation can hang off of.
 export type NoodleKind = "thought" | "idea";
 
+// A theme tag with how often it occurs and which group it belongs to.
+export interface ThemeFacet {
+  name: string;
+  count: number;
+  group: string | null;
+}
+
 export interface Task {
   id: string;
   action: string;

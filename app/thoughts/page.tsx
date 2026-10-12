@@ -1,12 +1,11 @@
-import { getAllThoughts, collectThemes } from "@/lib/data";
+import { getAllThoughts, getThemeGroupMap } from "@/lib/data";
 import { ScreenHeader } from "@/components/ui";
 import { ThoughtsView } from "@/components/ThoughtsView";
 
 export const dynamic = "force-dynamic";
 
 export default async function ThoughtsPage() {
-  const thoughts = await getAllThoughts();
-  const themes = collectThemes(thoughts);
+  const [thoughts, groupMap] = await Promise.all([getAllThoughts(), getThemeGroupMap()]);
 
   return (
     <div>
@@ -15,7 +14,7 @@ export default async function ThoughtsPage() {
           A stream of what you&rsquo;ve said to yourself. Follow a thread to see it recur.
         </p>
       </ScreenHeader>
-      <ThoughtsView thoughts={thoughts} themes={themes} />
+      <ThoughtsView thoughts={thoughts} groupMap={groupMap} />
     </div>
   );
 }

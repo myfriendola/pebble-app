@@ -9,6 +9,7 @@ import {
   sampleIdeas,
   sampleLifeTasks,
   sampleReview,
+  sampleThemeGroups,
   sampleThoughts,
   sampleWorkTasks,
 } from "./sampleData";
@@ -238,14 +239,21 @@ export async function getToday(): Promise<TodayData> {
   };
 }
 
-// All distinct themes across items with theme tags, most-used first — for the
-// Thoughts and Ideas filters.
-export function collectThemes(items: { themes: string[] }[]): string[] {
-  const counts = new Map<string, number>();
-  for (const t of items) {
-    for (const theme of t.themes) counts.set(theme, (counts.get(theme) ?? 0) + 1);
+// theme → group name, from the nightly clustering. Empty when it hasn't run.
+export async function getThemeGroupMap(): Promise<Record<string, string>> {
+  const supabase = getSupabase();
+  if (!supabase) return sampleThemeGroups;
+  try {
+    const { data, error } = await supabase.from("theme_groups").select("theme, grp");
+    if (error || !data) return {};
+    const map: Record<string, string> = {};
+    for (const row of data) {
+      const r = row as { theme: string; grp: string };
+      map[r.theme] = r.grp;
+    }
+    return map;
+  } catch {
+    return {};
   }
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([theme]) => theme);
 }
+
