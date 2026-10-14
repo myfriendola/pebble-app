@@ -6,6 +6,7 @@ import { IdeaRow } from "@/components/IdeaRow";
 import { TodoList } from "@/components/TodoList";
 import { TodayReflection } from "@/components/TodayReflection";
 import { ProcessNowButton } from "@/components/ProcessNowButton";
+import { NotificationsToggle } from "@/components/NotificationsToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -61,9 +62,15 @@ export default async function TodayPage() {
       </section>
 
       {/* Quiet dev affordance — run the nightly pipeline from the browser. */}
-      <footer className="border-t border-hairline pt-5">
-        <div className="label mb-2">Dev</div>
-        <ProcessNowButton />
+      <footer className="space-y-6 border-t border-hairline pt-5">
+        <div>
+          <div className="label mb-2">Notifications</div>
+          <NotificationsToggle />
+        </div>
+        <div>
+          <div className="label mb-2">Dev</div>
+          <ProcessNowButton />
+        </div>
       </footer>
     </div>
   );

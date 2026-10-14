@@ -30,6 +30,11 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
    - `CRON_SECRET` — another long random string
    - `APP_PASSWORD` *(optional)* — set this to lock the app behind a password
      (unlocks for 2 weeks per device); leave it unset and the app stays open
+   - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` *(optional)* — for
+     push notifications (`npx web-push generate-vapid-keys`); leave unset to
+     disable notifications
+   - `CALENDAR_TOKEN` *(optional)* — a long random string you invent; turns on
+     the calendar subscription feed. Leave unset to keep it off.
    Then **Redeploy**.
 3. **Point the ring at the webhook.** In the Pebble app → Index settings →
    Webhook, set the URL to
@@ -53,6 +58,9 @@ design is always visible; once Supabase is connected they show your real data.
 - The cron routes require `Authorization: Bearer ${CRON_SECRET}` (Vercel Cron adds this automatically). Schedules live in [`vercel.json`](./vercel.json) — UTC, currently set for US Eastern (reflection ~9pm, recap ~11:30pm).
 - A dev **“Process now”** button on Today runs the nightly pipeline on demand
   (via a server action, so `CRON_SECRET` never reaches the browser).
+- `GET /api/calendar/tasks.ics?token=…` — a subscribable iCalendar feed of every
+  dated to-do (all-day events that update themselves). The **Tasks** screen has a
+  “Subscribe in your calendar” link once `CALENDAR_TOKEN` is set.
 
 ## Local development
 
