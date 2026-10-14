@@ -30,6 +30,9 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
    - `CRON_SECRET` — another long random string
    - `APP_PASSWORD` *(optional)* — set this to lock the app behind a password
      (unlocks for 2 weeks per device); leave it unset and the app stays open
+   - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` *(optional)* — for
+     push notifications (`npx web-push generate-vapid-keys`); leave unset to
+     disable notifications
    Then **Redeploy**.
 3. **Point the ring at the webhook.** In the Pebble app → Index settings →
    Webhook, set the URL to

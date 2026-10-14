@@ -3,6 +3,7 @@ import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { NavRail } from "@/components/NavRail";
 import { OpeningSequence } from "@/components/OpeningSequence";
+import { PwaRegister } from "@/components/PwaRegister";
 
 // Clean sans for UI; serif (with italic) for the user's words and the app's
 // gentle questions.
@@ -22,6 +23,13 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "Pebble",
   description: "A calm place for the things you say to yourself.",
+  applicationName: "Pebble",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "Pebble", statusBarStyle: "default" },
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export const viewport: Viewport = {
@@ -39,6 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto w-full max-w-reading px-6 py-10 sm:py-14">{children}</div>
         </main>
         <OpeningSequence />
+        <PwaRegister />
       </body>
     </html>
   );

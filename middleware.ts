@@ -25,8 +25,9 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   // Everything except Next internals, static assets, and the always-open routes
-  // (the unlock page + endpoint, the ring webhook, and the cron jobs).
+  // (the unlock page + endpoint, the ring webhook, the cron jobs, the PWA
+  // manifest + service worker, and the public calendar feed).
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|unlock|api/unlock|api/capture|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|unlock|api/unlock|api/capture|api/cron|api/calendar|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf)$).*)",
   ],
 };

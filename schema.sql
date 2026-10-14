@@ -103,6 +103,13 @@ create table if not exists theme_groups (
   updated_at  timestamptz not null default now()
 );
 
+-- Web Push subscriptions (one row per installed device).
+create table if not exists push_subscriptions (
+  endpoint     text primary key,
+  subscription jsonb not null,
+  created_at   timestamptz not null default now()
+);
+
 -- Helpful indexes for the day / stream / reflection queries.
 create index if not exists captures_processed_idx  on captures (processed, captured_at);
 create index if not exists thoughts_captured_idx    on thoughts (captured_at desc);

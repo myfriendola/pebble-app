@@ -27,3 +27,10 @@ create table if not exists theme_groups (
   grp         text not null,
   updated_at  timestamptz not null default now()
 );
+
+-- Web Push subscriptions (one row per installed device).
+create table if not exists push_subscriptions (
+  endpoint     text primary key,
+  subscription jsonb not null,
+  created_at   timestamptz not null default now()
+);
