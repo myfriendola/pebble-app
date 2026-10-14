@@ -5,6 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabase } from "./supabase";
 import { chatJson } from "./openai";
+import { embedRow, backfillEmbeddings } from "./embeddings";
 import { hasOpenAI } from "./env";
 import { SORT_SYSTEM, buildSortUser } from "./prompts/sort";
 import { SUMMARIZE_SYSTEM, buildSummarizeUser } from "./prompts/summarize";
@@ -179,19 +180,29 @@ export async function sortAndFileCapture(
       });
       committed += 1;
     } else if (item.type === "idea") {
-      await supabase.from("ideas").insert({
-        text: capture.transcript,
-        themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
-        domain: item.domain === "work" || item.domain === "life" ? item.domain : null,
-        captured_at: capture.captured_at,
-      });
+      const { data: row } = await supabase
+        .from("ideas")
+        .insert({
+          text: capture.transcript,
+          themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
+          domain: item.domain === "work" || item.domain === "life" ? item.domain : null,
+          captured_at: capture.captured_at,
+        })
+        .select("id")
+        .single();
+      if (row) await embedRow(supabase, "ideas", (row as { id: string }).id, capture.transcript);
       committed += 1;
     } else {
-      await supabase.from("thoughts").insert({
-        text: capture.transcript,
-        themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
-        captured_at: capture.captured_at,
-      });
+      const { data: row } = await supabase
+        .from("thoughts")
+        .insert({
+          text: capture.transcript,
+          themes: Array.isArray(item.themes) ? item.themes.slice(0, 3) : [],
+          captured_at: capture.captured_at,
+        })
+        .select("id")
+        .single();
+      if (row) await embedRow(supabase, "thoughts", (row as { id: string }).id, capture.transcript);
       committed += 1;
     }
   }
@@ -231,6 +242,10 @@ export async function runNightly(
 
   // Keep the theme groups fresh for the filter (best-effort, once a run).
   await regroupThemes(supabase);
+
+  // Fill in embeddings for any notes still missing one (no-op unless semantic
+  // search is enabled), so older captures become findable over a few nights.
+  await backfillEmbeddings(supabase);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 

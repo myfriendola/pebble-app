@@ -6,14 +6,17 @@ import { relativeDay } from "@/lib/format";
 import { buildThemeFacets, groupOf } from "@/lib/themes";
 import { ThoughtRow } from "./ThoughtRow";
 import { ThemeFilter, type ThemeValue } from "./ThemeFilter";
+import { ShowEarlier } from "./ShowEarlier";
 import { Whisper } from "./ui";
 
 export function ThoughtsView({
   thoughts,
   groupMap,
+  moreHref,
 }: {
   thoughts: Thought[];
   groupMap: Record<string, string>;
+  moreHref?: string;
 }) {
   const [filter, setFilter] = useState<ThemeValue>({ category: null, theme: null });
 
@@ -68,6 +71,8 @@ export function ThoughtsView({
           ))}
         </div>
       )}
+
+      {!active && moreHref ? <ShowEarlier href={moreHref} /> : null}
     </div>
   );
 }
