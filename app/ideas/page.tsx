@@ -1,12 +1,11 @@
-import { getAllIdeas, collectThemes } from "@/lib/data";
+import { getAllIdeas, getThemeGroupMap } from "@/lib/data";
 import { ScreenHeader } from "@/components/ui";
 import { IdeasView } from "@/components/IdeasView";
 
 export const dynamic = "force-dynamic";
 
 export default async function IdeasPage() {
-  const ideas = await getAllIdeas();
-  const themes = collectThemes(ideas);
+  const [ideas, groupMap] = await Promise.all([getAllIdeas(), getThemeGroupMap()]);
 
   return (
     <div>
@@ -15,7 +14,7 @@ export default async function IdeasPage() {
           Sparks worth keeping — the things you might make, try, or explore.
         </p>
       </ScreenHeader>
-      <IdeasView ideas={ideas} themes={themes} />
+      <IdeasView ideas={ideas} groupMap={groupMap} />
     </div>
   );
 }

@@ -195,3 +195,13 @@ export const sampleDigests: Digest[] = [
     needs_review_count: 0,
   },
 ];
+
+// Group map for the sample themes (used in the no-database preview).
+export const sampleThemeGroups: Record<string, string> = {
+  "reading again": "Reading",
+  slowness: "Slow living",
+  mornings: "Slow living",
+  "launch nerves": "Work",
+  work: "Work",
+  writing: "Making",
+};

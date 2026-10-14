@@ -8,6 +8,7 @@ import { chatJson } from "./openai";
 import { hasOpenAI } from "./env";
 import { SORT_SYSTEM, buildSortUser } from "./prompts/sort";
 import { SUMMARIZE_SYSTEM, buildSummarizeUser } from "./prompts/summarize";
+import { GROUP_SYSTEM, buildGroupUser } from "./prompts/group";
 import type { DigestKind, SortResult, SummaryResult } from "./types";
 
 const CONFIDENCE_FLOOR = 0.6;
@@ -102,19 +103,50 @@ async function writeDigest(
   }
 }
 
+// Distinct theme tags already in use, most-frequent first — primes the sorter
+// to reuse tags instead of coining near-duplicates.
+export async function loadThemeVocabulary(
+  supabase: SupabaseClient,
+  limit = 60,
+): Promise<string[]> {
+  try {
+    const [t, i] = await Promise.all([
+      supabase.from("thoughts").select("themes"),
+      supabase.from("ideas").select("themes"),
+    ]);
+    const counts = new Map<string, number>();
+    for (const row of [...(t.data ?? []), ...(i.data ?? [])]) {
+      for (const theme of (row as { themes?: string[] }).themes ?? []) {
+        counts.set(theme, (counts.get(theme) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, limit)
+      .map(([theme]) => theme);
+  } catch {
+    return [];
+  }
+}
+
 // Sort one capture and file it into thoughts / ideas / work_tasks / life_tasks
 // (or review_queue when low-confidence), then mark it processed. Shared by the
 // nightly sweep and by sort-on-capture in the webhook. On a sort error the
-// capture is left unprocessed so a later run retries it.
+// capture is left unprocessed so a later run retries it. `vocabulary` primes tag
+// reuse; when omitted it's loaded here.
 export async function sortAndFileCapture(
   supabase: SupabaseClient,
   capture: { id: string; transcript: string; captured_at: string },
+  vocabulary?: string[],
 ): Promise<{ committed: number; review: number; ok: boolean }> {
+  const vocab = vocabulary ?? (await loadThemeVocabulary(supabase));
   let items: SortResult[] = [];
   try {
-    const parsed = await chatJson<unknown>(SORT_SYSTEM, buildSortUser([capture.transcript]), {
-      temperature: 0.2,
-    });
+    const parsed = await chatJson<unknown>(
+      SORT_SYSTEM,
+      buildSortUser([capture.transcript], vocab),
+      { temperature: 0.2 },
+    );
     items = normalizeSortArray(parsed);
   } catch {
     return { committed: 0, review: 0, ok: false };
@@ -190,11 +222,15 @@ export async function runNightly(
   let review = 0;
   const pending = captures ?? [];
 
+  const vocabulary = await loadThemeVocabulary(supabase);
   for (const capture of pending) {
-    const r = await sortAndFileCapture(supabase, capture);
+    const r = await sortAndFileCapture(supabase, capture, vocabulary);
     committed += r.committed;
     review += r.review;
   }
+
+  // Keep the theme groups fresh for the filter (best-effort, once a run).
+  await regroupThemes(supabase);
 
   const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -292,5 +328,49 @@ export async function analyzeText(text: string): Promise<SortResult | null> {
     return normalizeSortArray(parsed)[0] ?? null;
   } catch {
     return null;
+  }
+}
+
+// Cluster the current theme vocabulary into named groups and store them, so the
+// theme filter can show categories. One LLM call; best-effort, never blocks.
+export async function regroupThemes(supabase: SupabaseClient): Promise<void> {
+  if (!hasOpenAI) return;
+  try {
+    const tags = await loadThemeVocabulary(supabase, 150);
+    if (tags.length < 8) return; // not worth grouping a handful
+
+    const { data: prev } = await supabase.from("theme_groups").select("grp");
+    const previousGroups = Array.from(
+      new Set((prev ?? []).map((r) => (r as { grp: string }).grp)),
+    );
+
+    const parsed = await chatJson<{ groups?: Record<string, string[]> }>(
+      GROUP_SYSTEM,
+      buildGroupUser(tags, previousGroups),
+      { temperature: 0.2 },
+    );
+    const groups = parsed?.groups;
+    if (!groups || typeof groups !== "object") return;
+
+    const now = new Date().toISOString();
+    const rows: { theme: string; grp: string; updated_at: string }[] = [];
+    const seen = new Set<string>();
+    for (const [grp, themes] of Object.entries(groups)) {
+      if (!Array.isArray(themes)) continue;
+      for (const theme of themes) {
+        if (typeof theme !== "string") continue;
+        const t = theme.trim().toLowerCase();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        rows.push({ theme: t, grp: String(grp), updated_at: now });
+      }
+    }
+    if (rows.length === 0) return;
+
+    // Replace the stored grouping with the fresh one.
+    await supabase.from("theme_groups").delete().neq("theme", "");
+    await supabase.from("theme_groups").upsert(rows, { onConflict: "theme" });
+  } catch {
+    /* best-effort */
   }
 }
