@@ -35,6 +35,9 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
      disable notifications
    - `CALENDAR_TOKEN` *(optional)* — a long random string you invent; turns on
      the calendar subscription feed. Leave unset to keep it off.
+   - `SEARCH_EMBEDDINGS` *(optional)* — set to `1` for meaning-based (semantic)
+     search. Keyword search works without it. Requires the vector columns in
+     `schema.sql` / `migration.sql`.
    Then **Redeploy**.
 3. **Point the ring at the webhook.** In the Pebble app → Index settings →
    Webhook, set the URL to
@@ -61,6 +64,11 @@ design is always visible; once Supabase is connected they show your real data.
 - `GET /api/calendar/tasks.ics?token=…` — a subscribable iCalendar feed of every
   dated to-do (all-day events that update themselves). The **Tasks** screen has a
   “Subscribe in your calendar” link once `CALENDAR_TOKEN` is set.
+- `GET /api/export[?format=md]` — downloads a complete backup (JSON) or a readable
+  archive (Markdown) of everything. Linked from Today under **Backup**.
+- The **Search** screen recalls across thoughts, ideas, and tasks — keyword always,
+  and by meaning when `SEARCH_EMBEDDINGS=1`. The nightly job backfills embeddings
+  for older notes a batch at a time.
 
 ## Local development
 

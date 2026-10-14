@@ -6,6 +6,7 @@ import { relativeDay } from "@/lib/format";
 import { buildThemeFacets, groupOf } from "@/lib/themes";
 import { IdeaRow } from "./IdeaRow";
 import { ThemeFilter, type ThemeValue } from "./ThemeFilter";
+import { ShowEarlier } from "./ShowEarlier";
 import { Whisper } from "./ui";
 
 type DomainFilter = "all" | "work" | "life";
@@ -13,9 +14,11 @@ type DomainFilter = "all" | "work" | "life";
 export function IdeasView({
   ideas,
   groupMap,
+  moreHref,
 }: {
   ideas: Idea[];
   groupMap: Record<string, string>;
+  moreHref?: string;
 }) {
   const [domain, setDomain] = useState<DomainFilter>("all");
   const [filter, setFilter] = useState<ThemeValue>({ category: null, theme: null });
@@ -93,6 +96,8 @@ export function IdeasView({
           ))}
         </div>
       )}
+
+      {!active && domain === "all" && moreHref ? <ShowEarlier href={moreHref} /> : null}
     </div>
   );
 }

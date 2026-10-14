@@ -54,14 +54,19 @@ async function attachNoodles<T extends Noodleable>(
 // When Supabase is configured, always return the real rows — even an empty
 // list, so the screens show a calm empty state rather than sample content.
 // Sample data is only for the no-database preview.
-export async function getAllThoughts(): Promise<Thought[]> {
+// `limit` caps the rows fetched so the stream doesn't load every note ever as
+// the archive grows; the screens page with a "Show earlier" affordance. Omit
+// it only for callers that truly need the whole set.
+export async function getAllThoughts(limit?: number): Promise<Thought[]> {
   const supabase = getSupabase();
   if (!supabase) return sampleThoughts;
   try {
-    const { data, error } = await supabase
+    let q = supabase
       .from("thoughts")
       .select("id, text, themes, captured_at, created_at")
       .order("captured_at", { ascending: false });
+    if (limit) q = q.limit(limit);
+    const { data, error } = await q;
     if (error) return [];
     return attachNoodles(supabase, (data ?? []) as Thought[], "thought_id");
   } catch {
@@ -69,14 +74,16 @@ export async function getAllThoughts(): Promise<Thought[]> {
   }
 }
 
-export async function getAllIdeas(): Promise<Idea[]> {
+export async function getAllIdeas(limit?: number): Promise<Idea[]> {
   const supabase = getSupabase();
   if (!supabase) return sampleIdeas;
   try {
-    const { data, error } = await supabase
+    let q = supabase
       .from("ideas")
       .select("id, text, themes, domain, captured_at, created_at")
       .order("captured_at", { ascending: false });
+    if (limit) q = q.limit(limit);
+    const { data, error } = await q;
     if (error) return [];
     return attachNoodles(supabase, (data ?? []) as Idea[], "idea_id");
   } catch {
@@ -84,13 +91,15 @@ export async function getAllIdeas(): Promise<Idea[]> {
   }
 }
 
+// Tasks are more bounded than the thought stream, but cap them too so a long
+// history of done items can't balloon the Tasks screen.
 export async function getTasks(): Promise<{ work: Task[]; life: Task[] }> {
   const supabase = getSupabase();
   if (!supabase) return { work: sampleWorkTasks, life: sampleLifeTasks };
   try {
     const [w, l] = await Promise.all([
-      supabase.from("work_tasks").select("*").order("captured_at", { ascending: false }),
-      supabase.from("life_tasks").select("*").order("captured_at", { ascending: false }),
+      supabase.from("work_tasks").select("*").order("captured_at", { ascending: false }).limit(250),
+      supabase.from("life_tasks").select("*").order("captured_at", { ascending: false }).limit(250),
     ]);
     const work = (w.data ?? []).map((t) => ({ ...t, domain: "work" as const }));
     const life = (l.data ?? []).map((t) => ({ ...t, domain: "life" as const }));
@@ -209,9 +218,11 @@ export interface TodayData {
 }
 
 export async function getToday(): Promise<TodayData> {
+  // Today only needs the most recent slice (it filters to today), so a modest
+  // window keeps this light no matter how large the archive grows.
   const [thoughts, ideas, tasks, digests, reviewItems] = await Promise.all([
-    getAllThoughts(),
-    getAllIdeas(),
+    getAllThoughts(80),
+    getAllIdeas(80),
     getTasks(),
     getDigests(),
     getReviewItems(),
@@ -237,6 +248,63 @@ export async function getToday(): Promise<TodayData> {
     reviewItems,
     reviewCount: reviewItems.length,
   };
+}
+
+// The most recent thought/idea where you began a gentle question but haven't
+// answered it yet — a soft on-ramp back into reflection, surfaced on Today.
+export async function getOpenNoodle(): Promise<
+  { kind: "thought" | "idea"; id: string; text: string; prompt: string } | null
+> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase
+      .from("noodles")
+      .select("thought_id, idea_id, prompt, reply, created_at")
+      .is("reply", null)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    for (const row of (data ?? []) as Record<string, string | null>[]) {
+      const prompt = row.prompt ?? "";
+      if (!prompt) continue;
+      if (row.thought_id) {
+        const { data: t } = await supabase
+          .from("thoughts")
+          .select("id, text")
+          .eq("id", row.thought_id)
+          .maybeSingle();
+        if (t) return { kind: "thought", id: (t as Thought).id, text: (t as Thought).text, prompt };
+      } else if (row.idea_id) {
+        const { data: i } = await supabase
+          .from("ideas")
+          .select("id, text")
+          .eq("id", row.idea_id)
+          .maybeSingle();
+        if (i) return { kind: "idea", id: (i as Idea).id, text: (i as Idea).text, prompt };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// When the newest voice note arrived — so a silently broken webhook is visible
+// at a glance. Null when there are no captures yet (or no database).
+export async function getLastCaptureAt(): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  try {
+    const { data } = await supabase
+      .from("captures")
+      .select("captured_at")
+      .order("captured_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return (data as { captured_at?: string } | null)?.captured_at ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // theme → group name, from the nightly clustering. Empty when it hasn't run.

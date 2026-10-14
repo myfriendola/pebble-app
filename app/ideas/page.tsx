@@ -4,8 +4,16 @@ import { IdeasView } from "@/components/IdeasView";
 
 export const dynamic = "force-dynamic";
 
-export default async function IdeasPage() {
-  const [ideas, groupMap] = await Promise.all([getAllIdeas(), getThemeGroupMap()]);
+const PAGE = 120;
+
+export default async function IdeasPage({
+  searchParams,
+}: {
+  searchParams: { take?: string };
+}) {
+  const take = Math.min(2000, Math.max(PAGE, parseInt(searchParams.take ?? "", 10) || PAGE));
+  const [ideas, groupMap] = await Promise.all([getAllIdeas(take), getThemeGroupMap()]);
+  const moreHref = ideas.length >= take ? `/ideas?take=${take + PAGE}` : undefined;
 
   return (
     <div>
@@ -14,7 +22,7 @@ export default async function IdeasPage() {
           Sparks worth keeping — the things you might make, try, or explore.
         </p>
       </ScreenHeader>
-      <IdeasView ideas={ideas} groupMap={groupMap} />
+      <IdeasView ideas={ideas} groupMap={groupMap} moreHref={moreHref} />
     </div>
   );
 }

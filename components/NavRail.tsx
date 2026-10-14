@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, MessageCircle, Lightbulb, CheckSquare, Moon } from "lucide-react";
+import { Sun, MessageCircle, Lightbulb, CheckSquare, Moon, Search } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Today", Icon: Sun },
@@ -10,6 +10,7 @@ const ITEMS = [
   { href: "/ideas", label: "Ideas", Icon: Lightbulb },
   { href: "/tasks", label: "Tasks", Icon: CheckSquare },
   { href: "/reflections", label: "Reflections", Icon: Moon },
+  { href: "/search", label: "Search", Icon: Search },
 ] as const;
 
 function isActive(pathname: string, href: string): boolean {
