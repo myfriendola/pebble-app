@@ -29,6 +29,10 @@ export const env = {
 
   captureSecret: clean(process.env.CAPTURE_SECRET),
   cronSecret: clean(process.env.CRON_SECRET),
+
+  // Guards the public calendar subscription feed (/api/calendar/tasks.ics).
+  // Unset → the feed is disabled and returns 404.
+  calendarToken: clean(process.env.CALENDAR_TOKEN),
 };
 
 // True only when both Supabase values are present. When false, the app falls
@@ -37,3 +41,6 @@ export const env = {
 export const hasSupabase = Boolean(env.supabaseUrl && env.supabaseServiceRoleKey);
 
 export const hasOpenAI = Boolean(env.openaiApiKey);
+
+// True once a calendar token is set — turns on the subscription feed.
+export const hasCalendar = Boolean(env.calendarToken);
