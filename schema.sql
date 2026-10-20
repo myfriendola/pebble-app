@@ -103,10 +103,12 @@ create table if not exists theme_groups (
   updated_at  timestamptz not null default now()
 );
 
--- Web Push subscriptions (one row per installed device).
+-- Web Push subscriptions (one row per installed device). `prefs` records which
+-- notification types that device wants.
 create table if not exists push_subscriptions (
   endpoint     text primary key,
   subscription jsonb not null,
+  prefs        jsonb not null default '{"reflection":true,"reminders":true}'::jsonb,
   created_at   timestamptz not null default now()
 );
 

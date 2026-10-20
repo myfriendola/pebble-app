@@ -31,12 +31,15 @@ async function handle(req: Request) {
       count === 1
         ? actions[0]
         : `${actions[0]} · and ${count - 1} more`;
-    const res = await sendPush({
-      title: count === 1 ? "A to-do for today" : `${count} to-dos for today`,
-      body,
-      url: "/tasks",
-      tag: "due-today",
-    });
+    const res = await sendPush(
+      {
+        title: count === 1 ? "A to-do for today" : `${count} to-dos for today`,
+        body,
+        url: "/tasks",
+        tag: "due-today",
+      },
+      { type: "reminders" },
+    );
     sent = res.sent;
   }
 

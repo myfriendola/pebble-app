@@ -18,12 +18,15 @@ async function handle(req: Request) {
   const report = await runNightly();
   // Let the reader know the day's reflection has settled.
   if (report.ok && report.digest === "daily") {
-    await sendPush({
-      title: "Your reflection has settled",
-      body: "The day read back to you — open Pebble when you have a quiet minute.",
-      url: "/",
-      tag: "daily-reflection",
-    });
+    await sendPush(
+      {
+        title: "Your reflection has settled",
+        body: "The day read back to you — open Pebble when you have a quiet minute.",
+        url: "/",
+        tag: "daily-reflection",
+      },
+      { type: "reflection" },
+    );
   }
   return NextResponse.json(report, { status: report.ok ? 200 : 500 });
 }
