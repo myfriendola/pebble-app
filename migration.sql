@@ -35,6 +35,10 @@ create table if not exists push_subscriptions (
   created_at   timestamptz not null default now()
 );
 
+-- Per-device notification preferences (which types each device wants).
+alter table push_subscriptions
+  add column if not exists prefs jsonb not null default '{"reflection":true,"reminders":true}'::jsonb;
+
 -- Faster due-date lookups for the morning reminders cron and the calendar feed.
 create index if not exists work_tasks_due_idx on work_tasks (due);
 create index if not exists life_tasks_due_idx on life_tasks (due);
