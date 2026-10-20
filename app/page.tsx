@@ -1,4 +1,4 @@
-import { getToday, getOpenNoodle, getLastCaptureAt } from "@/lib/data";
+import { getToday, getOpenNoodle } from "@/lib/data";
 import { formatDayLong } from "@/lib/format";
 import { SectionLabel } from "@/components/ui";
 import { ThoughtStream } from "@/components/ThoughtStream";
@@ -6,19 +6,11 @@ import { IdeaRow } from "@/components/IdeaRow";
 import { TodoList } from "@/components/TodoList";
 import { TodayReflection } from "@/components/TodayReflection";
 import { DailyPrompt } from "@/components/DailyPrompt";
-import { CaptureHealth } from "@/components/CaptureHealth";
-import { ProcessNowButton } from "@/components/ProcessNowButton";
-import { NotificationsToggle } from "@/components/NotificationsToggle";
-import { ExportLinks } from "@/components/ExportLinks";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const [today, openNoodle, lastCaptureAt] = await Promise.all([
-    getToday(),
-    getOpenNoodle(),
-    getLastCaptureAt(),
-  ]);
+  const [today, openNoodle] = await Promise.all([getToday(), getOpenNoodle()]);
 
   // The top zone blooms into the full reflection once the day's reflection
   // exists (written nightly / by "Process now"); until then it holds one
@@ -69,26 +61,6 @@ export default async function TodayPage() {
       </section>
 
       {openNoodle ? <DailyPrompt {...openNoodle} /> : null}
-
-      {/* Quiet footer: settings, backup, and a capture-health line. */}
-      <footer className="space-y-6 border-t border-hairline pt-5">
-        <div>
-          <div className="label mb-2">Capture</div>
-          <CaptureHealth iso={lastCaptureAt} />
-        </div>
-        <div>
-          <div className="label mb-2">Notifications</div>
-          <NotificationsToggle />
-        </div>
-        <div>
-          <div className="label mb-2">Backup</div>
-          <ExportLinks />
-        </div>
-        <div>
-          <div className="label mb-2">Dev</div>
-          <ProcessNowButton />
-        </div>
-      </footer>
     </div>
   );
 }
