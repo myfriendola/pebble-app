@@ -10,6 +10,7 @@ import { hasOpenAI } from "./env";
 import { SORT_SYSTEM, buildSortUser } from "./prompts/sort";
 import { SUMMARIZE_SYSTEM, buildSummarizeUser } from "./prompts/summarize";
 import { GROUP_SYSTEM, buildGroupUser } from "./prompts/group";
+import { startOfAppTodayIso, appTodayStr } from "./time";
 import type { DigestKind, SortResult, SummaryResult } from "./types";
 
 const CONFIDENCE_FLOOR = 0.6;
@@ -37,10 +38,11 @@ function normalizeSortArray(parsed: unknown): SortResult[] {
   return [];
 }
 
+// "Today" in the app's timezone (US Eastern by default), not the server's UTC —
+// so an evening reflection covers the whole local day, not just the hour since
+// UTC midnight.
 function startOfTodayIso(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+  return startOfAppTodayIso();
 }
 
 async function loadThoughtsSince(supabase: SupabaseClient, sinceIso: string) {
@@ -247,7 +249,7 @@ export async function runNightly(
   // search is enabled), so older captures become findable over a few nights.
   await backfillEmbeddings(supabase);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = appTodayStr();
 
   // For a later same-day run: skip re-writing today's reflection if it already
   // exists and nothing new has been captured since it was written.
@@ -320,7 +322,7 @@ async function runWindow(kind: "weekly" | "monthly", days: number): Promise<Pipe
 
   let wroteDigest: DigestKind | null = null;
   if (summary) {
-    await writeDigest(supabase, kind, new Date().toISOString().slice(0, 10), summary, 0);
+    await writeDigest(supabase, kind, appTodayStr(), summary, 0);
     wroteDigest = kind;
   }
   return { ok: true, digest: wroteDigest };
