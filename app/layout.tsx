@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Newsreader } from "next/font/google";
 import "./globals.css";
 import { NavRail } from "@/components/NavRail";
+import { TopBar } from "@/components/TopBar";
 import { OpeningSequence } from "@/components/OpeningSequence";
 import { PwaRegister } from "@/components/PwaRegister";
 
@@ -36,6 +37,7 @@ export const viewport: Viewport = {
   themeColor: "#F5F1EA",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -43,9 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${newsreader.variable}`}>
       <body className="min-h-screen bg-paper text-ink antialiased">
         <NavRail />
-        <main className="sm:pl-[54px] pb-24 sm:pb-0">
-          <div className="mx-auto w-full max-w-reading px-6 py-10 sm:py-14">{children}</div>
-        </main>
+        <div className="sm:pl-[54px]">
+          <TopBar />
+          <main className="pb-28 sm:pb-16">
+            <div className="mx-auto w-full max-w-reading px-6 py-8 sm:py-10">{children}</div>
+          </main>
+        </div>
         <OpeningSequence />
         <PwaRegister />
       </body>
