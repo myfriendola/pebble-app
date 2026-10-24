@@ -15,7 +15,7 @@ export function ScreenHeader({
   return (
     <header className="mb-8 animate-fade-in">
       {label ? <div className="label mb-2">{label}</div> : null}
-      <h1 className="font-sans text-[18px] font-medium tracking-tight text-ink">{title}</h1>
+      <h1 className="font-serif text-[27px] leading-[1.1] tracking-[-0.01em] text-ink">{title}</h1>
       {children}
     </header>
   );

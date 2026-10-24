@@ -3,6 +3,7 @@
 // empty. Import only from server components / actions.
 
 import { getSupabase } from "./supabase";
+import { isAppToday, appTodayStr } from "./time";
 import type { Digest, Idea, ReviewItem, Task, Thought } from "./types";
 import {
   sampleDigests,
@@ -14,14 +15,8 @@ import {
   sampleWorkTasks,
 } from "./sampleData";
 
-function startOfToday(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-}
-
 function isToday(iso: string): boolean {
-  return iso >= startOfToday();
+  return isAppToday(iso);
 }
 
 type Noodleable = { id: string; noodle?: { prompt: string; reply: string | null } | null };
@@ -234,7 +229,7 @@ export async function getToday(): Promise<TodayData> {
     .filter((t) => t.status !== "done")
     .sort((a, b) => (a.captured_at < b.captured_at ? 1 : -1));
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = appTodayStr();
   const dailyDigest =
     digests.find((d) => d.kind === "daily" && d.period_date.slice(0, 10) === todayStr) ?? null;
 

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { cronAuthorized } from "@/lib/cronAuth";
 import { getSupabase } from "@/lib/supabase";
 import { sendPush } from "@/lib/push";
+import { appTodayStr } from "@/lib/time";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +18,7 @@ async function handle(req: Request) {
   const supabase = getSupabase();
   if (!supabase) return NextResponse.json({ ok: false, reason: "no database" }, { status: 500 });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = appTodayStr();
   const [w, l] = await Promise.all([
     supabase.from("work_tasks").select("action").eq("due", today).neq("status", "done"),
     supabase.from("life_tasks").select("action").eq("due", today).neq("status", "done"),

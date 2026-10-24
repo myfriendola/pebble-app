@@ -28,7 +28,7 @@ export function CalendarSubscribeLink({
       <div className="flex flex-wrap items-center gap-3">
         <a
           href={webcalUrl}
-          className="rounded-control border border-hairline px-3 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage"
+          className="rounded-full border border-hairline px-4 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage"
         >
           Subscribe in your calendar
         </a>

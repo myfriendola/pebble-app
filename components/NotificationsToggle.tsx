@@ -233,7 +233,7 @@ export function NotificationsToggle() {
       <button
         onClick={enable}
         disabled={state === "working"}
-        className="rounded-control border border-hairline px-3 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
+        className="rounded-full border border-hairline px-4 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
       >
         {state === "working" ? "Turning on…" : "Turn on notifications"}
       </button>

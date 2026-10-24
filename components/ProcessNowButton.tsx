@@ -36,7 +36,7 @@ export function ProcessNowButton() {
       <button
         onClick={run}
         disabled={pending}
-        className="rounded-control border border-hairline px-3 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
+        className="rounded-full border border-hairline px-4 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
       >
         {pending ? "Processing…" : "Process now"}
       </button>

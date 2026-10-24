@@ -66,6 +66,15 @@
   }
 }
 
+/* Horizontal scroll rows (theme filter) without a visible scrollbar. */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 /* ══════════════════════════  PASSWORD GATE — glassmorphism lock + opening  ══════════════════════════ */
 
 /* A luminous sage→peach aura for the glass to refract. */
