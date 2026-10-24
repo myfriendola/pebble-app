@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { SortResult } from "@/lib/types";
-import { saveAndReanalyze, moveItem, type ItemKind } from "@/app/actions";
+import { saveAndReanalyze, moveItem, deleteItem, type ItemKind } from "@/app/actions";
 
 // Inline text editor for a thought / idea / task. On save it re-runs the sort;
 // if the category changes it asks before moving the item, so nothing silently
@@ -25,6 +25,14 @@ export function ItemEditor({
   const [suggest, setSuggest] = useState<{ target: ItemKind; label: string; result: SortResult } | null>(
     null,
   );
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  function del() {
+    start(async () => {
+      await deleteItem(kind, id);
+      onDone();
+    });
+  }
 
   function save() {
     if (!value.trim()) return;
@@ -73,6 +81,34 @@ export function ItemEditor({
           >
             Cancel
           </button>
+
+          {confirmDelete ? (
+            <span className="ml-auto flex items-center gap-3">
+              <span className="font-sans text-[12px] text-ink-muted">Delete this?</span>
+              <button
+                onClick={del}
+                disabled={pending}
+                className="font-sans text-[12px] text-ink-secondary underline underline-offset-2 transition-colors hover:text-ink disabled:opacity-40"
+              >
+                {pending ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                disabled={pending}
+                className="font-sans text-[12px] text-ink-muted transition-colors hover:text-ink-secondary disabled:opacity-40"
+              >
+                Keep
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              disabled={pending}
+              className="ml-auto font-sans text-[12px] text-ink-muted transition-colors hover:text-ink-secondary disabled:opacity-40"
+            >
+              Delete
+            </button>
+          )}
         </div>
       ) : (
         <div className="mt-3 border-l-2 border-sage-ring pl-3">
