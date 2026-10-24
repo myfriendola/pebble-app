@@ -154,6 +154,25 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "database not configured" }, { status: 500 });
   }
 
+  // Guard against duplicate webhook deliveries: the ring (or its platform) can
+  // send the same recording more than once. If an identical transcript arrived
+  // in the last few minutes, treat this as a repeat and don't file it again.
+  const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
+  try {
+    const since = new Date(Date.now() - DEDUPE_WINDOW_MS).toISOString();
+    const { data: dup } = await supabase
+      .from("captures")
+      .select("id")
+      .eq("transcript", transcript)
+      .gte("created_at", since)
+      .limit(1);
+    if (dup && dup.length > 0) {
+      return NextResponse.json({ ok: true, duplicate: true }, { status: 200 });
+    }
+  } catch {
+    /* if the dedupe check fails, fall through and store normally */
+  }
+
   let inserted: { id: string; transcript: string; captured_at: string } | null = null;
   try {
     const { data, error } = await supabase

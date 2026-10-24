@@ -213,6 +213,16 @@ export async function saveAndReanalyze(
   return { status: "suggest", target, label: labelOf(target, result), result };
 }
 
+// Delete an item outright (e.g. a duplicate from a repeated webhook delivery).
+// Noodles hanging off a thought/idea are removed by the on-delete cascade.
+export async function deleteItem(kind: ItemKind, id: string): Promise<{ ok: boolean }> {
+  const supabase = getSupabase();
+  if (!supabase || !UUID_RE.test(id)) return { ok: false };
+  await supabase.from(TABLE[kind]).delete().eq("id", id);
+  revalidateItems();
+  return { ok: true };
+}
+
 // Confirm a suggested move: recreate the item in the target table (carrying the
 // original capture time) and remove the old one.
 export async function moveItem(
