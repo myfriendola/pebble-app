@@ -35,13 +35,13 @@ function TaskRow({ task }: { task: Task }) {
   }
 
   return (
-    <SwipeRow
-      onDelete={() => deleteItem(kind, task.id)}
-      contentClassName={`flex gap-3.5 py-5 transition-opacity duration-500 ${done ? "opacity-40" : ""}`}
-    >
-      <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
-      <div className="min-w-0 flex-1">
-        <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
+    <SwipeRow onDelete={() => deleteItem(kind, task.id)} contentClassName="py-5">
+      {/* Dim only the content when done — not the row's opaque surface, which
+          must stay solid to cover the Delete action behind it. */}
+      <div className={`flex gap-3.5 transition-opacity duration-500 ${done ? "opacity-40" : ""}`}>
+        <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
+        <div className="min-w-0 flex-1">
+          <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
 
         {due ? (
           <div className="mt-1.5 flex items-center gap-1 text-ink-muted">
@@ -66,6 +66,7 @@ function TaskRow({ task }: { task: Task }) {
           >
             <Pencil size={15} strokeWidth={1.5} />
           </button>
+          </div>
         </div>
       </div>
     </SwipeRow>
