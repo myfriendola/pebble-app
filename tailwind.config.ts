@@ -27,6 +27,8 @@ const config: Config = {
         },
         // A warm, low-contrast hairline derived from the paper
         hairline: "#E4DED2",
+        // Muted terracotta for destructive actions — warm, not alarming.
+        clay: { DEFAULT: "#B86B57", soft: "#E8D6CF" },
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],

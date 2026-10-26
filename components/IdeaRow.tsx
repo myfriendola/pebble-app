@@ -1,11 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 import type { Idea } from "@/lib/types";
 import { formatTime } from "@/lib/format";
+import { deleteItem } from "@/app/actions";
 import { Tag } from "./ui";
 import { NoodleBlock } from "./NoodleBlock";
 import { ItemEditor } from "./ItemEditor";
+import { SwipeRow } from "./SwipeRow";
+import { CopyButton } from "./CopyButton";
 
 export function IdeaRow({
   idea,
@@ -22,14 +26,14 @@ export function IdeaRow({
 
   if (editing) {
     return (
-      <div className="py-5 first:pt-0 last:pb-0">
+      <div className="py-5">
         <ItemEditor kind="idea" id={idea.id} initialText={idea.text} onDone={() => setEditing(false)} />
       </div>
     );
   }
 
   return (
-    <div className="py-5 first:pt-0 last:pb-0">
+    <SwipeRow onDelete={() => deleteItem("idea", idea.id)}>
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
@@ -54,12 +58,17 @@ export function IdeaRow({
               </Tag>
             ))
           : null}
-        <button
-          onClick={() => setEditing(true)}
-          className="ml-auto font-sans text-[11px] uppercase tracking-label text-ink-muted transition-colors hover:text-sage"
-        >
-          Edit
-        </button>
+        <span className="ml-auto flex items-center gap-2">
+          <CopyButton text={idea.text} />
+          <button
+            onClick={() => setEditing(true)}
+            aria-label="Edit entry"
+            title="Edit"
+            className="-m-1 p-1 text-ink-muted transition-colors hover:text-sage"
+          >
+            <Pencil size={15} strokeWidth={1.5} />
+          </button>
+        </span>
       </div>
 
       {open ? (
@@ -72,6 +81,6 @@ export function IdeaRow({
           openAsPageHref={`/ideas/${idea.id}`}
         />
       ) : null}
-    </div>
+    </SwipeRow>
   );
 }

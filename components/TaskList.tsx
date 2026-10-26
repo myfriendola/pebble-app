@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, Pencil } from "lucide-react";
 import type { Task } from "@/lib/types";
 import { formatDue } from "@/lib/format";
+import { deleteItem } from "@/app/actions";
 import { CheckRing } from "./CheckRing";
 import { ItemEditor } from "./ItemEditor";
+import { SwipeRow } from "./SwipeRow";
+import { CopyButton } from "./CopyButton";
 import { Whisper } from "./ui";
 
 function TaskRow({ task }: { task: Task }) {
@@ -14,16 +17,11 @@ function TaskRow({ task }: { task: Task }) {
   const due = formatDue(task.due);
   const kind = task.domain === "work" ? "work_task" : "life_task";
 
-  return (
-    <div
-      className={[
-        "flex gap-3.5 py-5 first:pt-0 last:pb-0 transition-opacity duration-500",
-        done ? "opacity-40" : "opacity-100",
-      ].join(" ")}
-    >
-      <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
-      <div className="min-w-0 flex-1">
-        {editing ? (
+  if (editing) {
+    return (
+      <div className="flex gap-3.5 py-5">
+        <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
+        <div className="min-w-0 flex-1">
           <ItemEditor
             kind={kind}
             id={task.id}
@@ -31,33 +29,46 @@ function TaskRow({ task }: { task: Task }) {
             textClassName="font-serif text-[15px] italic"
             onDone={() => setEditing(false)}
           />
-        ) : (
-          <>
-            <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
-
-            {due ? (
-              <div className="mt-1.5 flex items-center gap-1 text-ink-muted">
-                <Calendar size={12} strokeWidth={1.5} />
-                <span className="font-sans text-[12px]">{due}</span>
-              </div>
-            ) : null}
-
-            {task.source_quote ? (
-              <p className="mt-3 border-l-2 border-sage-tint pl-3 font-serif text-[15px] italic leading-[1.6] text-ink-secondary">
-                {task.source_quote}
-              </p>
-            ) : null}
-
-            <button
-              onClick={() => setEditing(true)}
-              className="mt-2 font-sans text-[11px] uppercase tracking-label text-ink-muted transition-colors hover:text-sage"
-            >
-              Edit
-            </button>
-          </>
-        )}
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <SwipeRow
+      onDelete={() => deleteItem(kind, task.id)}
+      contentClassName={`flex gap-3.5 py-5 transition-opacity duration-500 ${done ? "opacity-40" : ""}`}
+    >
+      <CheckRing id={task.id} domain={task.domain} initialDone={done} onChange={setDone} />
+      <div className="min-w-0 flex-1">
+        <p className="font-sans text-[15px] leading-snug text-ink">{task.action}</p>
+
+        {due ? (
+          <div className="mt-1.5 flex items-center gap-1 text-ink-muted">
+            <Calendar size={12} strokeWidth={1.5} />
+            <span className="font-sans text-[12px]">{due}</span>
+          </div>
+        ) : null}
+
+        {task.source_quote ? (
+          <p className="mt-3 border-l-2 border-sage-tint pl-3 font-serif text-[15px] italic leading-[1.6] text-ink-secondary">
+            {task.source_quote}
+          </p>
+        ) : null}
+
+        <div className="mt-2 flex items-center gap-2">
+          <CopyButton text={task.action} />
+          <button
+            onClick={() => setEditing(true)}
+            aria-label="Edit entry"
+            title="Edit"
+            className="-m-1 p-1 text-ink-muted transition-colors hover:text-sage"
+          >
+            <Pencil size={15} strokeWidth={1.5} />
+          </button>
+        </div>
+      </div>
+    </SwipeRow>
   );
 }
 
