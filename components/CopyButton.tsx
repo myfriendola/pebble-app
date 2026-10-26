@@ -1,15 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Copy, Check } from "lucide-react";
 
-// A quiet "Copy" for taking an entry's words elsewhere. Briefly confirms.
-export function CopyButton({
-  text,
-  className = "font-sans text-[11px] uppercase tracking-label text-ink-muted transition-colors hover:text-sage",
-}: {
-  text: string;
-  className?: string;
-}) {
+// A quiet copy icon for taking an entry's words elsewhere. Flips to a check
+// briefly on success.
+export function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -23,8 +19,17 @@ export function CopyButton({
   }
 
   return (
-    <button onClick={copy} className={className} aria-label="Copy entry">
-      {copied ? "Copied" : "Copy"}
+    <button
+      onClick={copy}
+      aria-label={copied ? "Copied" : "Copy entry"}
+      title="Copy"
+      className="-m-1 p-1 text-ink-muted transition-colors hover:text-sage"
+    >
+      {copied ? (
+        <Check size={15} strokeWidth={1.8} className="text-sage" />
+      ) : (
+        <Copy size={15} strokeWidth={1.5} />
+      )}
     </button>
   );
 }

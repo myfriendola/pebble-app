@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pencil } from "lucide-react";
 import type { Idea } from "@/lib/types";
 import { formatTime } from "@/lib/format";
 import { deleteItem } from "@/app/actions";
@@ -57,13 +58,15 @@ export function IdeaRow({
               </Tag>
             ))
           : null}
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ml-auto flex items-center gap-2">
           <CopyButton text={idea.text} />
           <button
             onClick={() => setEditing(true)}
-            className="font-sans text-[11px] uppercase tracking-label text-ink-muted transition-colors hover:text-sage"
+            aria-label="Edit entry"
+            title="Edit"
+            className="-m-1 p-1 text-ink-muted transition-colors hover:text-sage"
           >
-            Edit
+            <Pencil size={15} strokeWidth={1.5} />
           </button>
         </span>
       </div>
