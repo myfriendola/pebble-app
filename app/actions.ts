@@ -5,7 +5,7 @@
 // the server and nothing is exposed to the browser. Then refreshes the screens.
 
 import { revalidatePath } from "next/cache";
-import { runNightly, analyzeText } from "@/lib/processing";
+import { runNightly, analyzeText, settleStaleCaptures } from "@/lib/processing";
 import type { PipelineReport } from "@/lib/processing";
 import { getSupabase } from "@/lib/supabase";
 import type { Domain, SortResult } from "@/lib/types";
@@ -17,6 +17,17 @@ export async function processNow(): Promise<PipelineReport> {
   revalidatePath("/tasks");
   revalidatePath("/reflections");
   return report;
+}
+
+// "Sort now" on a note that's been waiting on Today: retry the sort for any
+// capture the background pass didn't finish, instead of waiting for tonight.
+export async function sortWaitingNotes(): Promise<{ settled: number }> {
+  const settled = await settleStaleCaptures();
+  revalidatePath("/");
+  revalidatePath("/thoughts");
+  revalidatePath("/ideas");
+  revalidatePath("/tasks");
+  return { settled };
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

@@ -429,3 +429,70 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ══════════════════════════  ARRIVALS — notes landing from the ring  ══════════════════════════ */
+
+/* A small sage dot that breathes while a note finds its place. */
+.breathe-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: theme("colors.sage.ring2");
+  animation: pebble-breathe 1.6s ease-in-out infinite alternate;
+}
+@keyframes pebble-breathe {
+  from {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* A pebble dropped in still water: two faint rings spread from the wordmark
+   when a new note arrives. Elliptical, as ripples look on a pond. */
+.pebble-ripple {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.pebble-ripple i {
+  position: absolute;
+  left: -20px;
+  top: -8px;
+  width: 40px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid theme("colors.sage.ring2");
+  opacity: 0;
+  animation: pebble-ripple 1.8s cubic-bezier(0.2, 0.6, 0.3, 1) forwards;
+}
+.pebble-ripple i:nth-child(2) {
+  animation-delay: 0.3s;
+}
+@keyframes pebble-ripple {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .breathe-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+  .pebble-ripple {
+    display: none;
+  }
+}

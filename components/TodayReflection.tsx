@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { ChevronRight } from "lucide-react";
 import type { Digest, ReviewItem } from "@/lib/types";
 import { resolveReview, type ReviewDecision } from "@/app/actions";
+import { ReviewEntry } from "./ReviewEntry";
 
 // The evening bloom: the top of Today deepening into the full daily reflection.
 // A warm paper panel — narrative, one question to sit with, and one quiet
@@ -17,12 +18,15 @@ export function TodayReflection({
   reviewItems: ReviewItem[];
 }) {
   const [openReview, setOpenReview] = useState(false);
-  const [items, setItems] = useState(reviewItems);
+  // Hide resolved items optimistically, but keep reading the list from props so
+  // a live refresh can bring in anything new.
+  const [resolved, setResolved] = useState<Set<string>>(() => new Set());
+  const items = reviewItems.filter((i) => !resolved.has(i.id));
   const [pending, startTransition] = useTransition();
   const question = digest.questions[0];
 
   function resolve(id: string, decision: ReviewDecision) {
-    setItems((prev) => prev.filter((i) => i.id !== id)); // optimistic
+    setResolved((prev) => new Set(prev).add(id)); // optimistic
     startTransition(() => {
       void resolveReview(id, decision);
     });
@@ -69,66 +73,13 @@ export function TodayReflection({
               <p className="font-sans text-[12px] text-ink-muted">
                 These weren&rsquo;t clear enough to sort on their own — file each with a tap.
               </p>
-              {items.map((item) => {
-                const g = item.best_guess;
-                const guess = g
-                  ? [g.type, g.domain].filter(Boolean).join(" · ") +
-                    (typeof g.confidence === "number"
-                      ? ` · ${Math.round(g.confidence * 100)}%`
-                      : "")
-                  : null;
-                return (
-                  <div key={item.id} className="border-l-2 border-sage-tint pl-3">
-                    <p className="prose-serif text-[15.5px] text-ink-secondary">
-                      {item.transcript ?? g?.note ?? "—"}
-                    </p>
-                    {guess ? <div className="label mt-1.5">best guess: {guess}</div> : null}
-                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                      <span className="label">File as</span>
-                      <ResolveButton onClick={() => resolve(item.id, "task")} disabled={pending}>
-                        task
-                      </ResolveButton>
-                      <ResolveButton onClick={() => resolve(item.id, "thought")} disabled={pending}>
-                        thought
-                      </ResolveButton>
-                      <ResolveButton onClick={() => resolve(item.id, "idea")} disabled={pending}>
-                        idea
-                      </ResolveButton>
-                      <button
-                        onClick={() => resolve(item.id, "dismiss")}
-                        disabled={pending}
-                        className="font-sans text-[12px] text-ink-muted transition-colors hover:text-ink-secondary disabled:opacity-40"
-                      >
-                        dismiss
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+              {items.map((item) => (
+                <ReviewEntry key={item.id} item={item} onResolve={resolve} disabled={pending} />
+              ))}
             </div>
           ) : null}
         </div>
       ) : null}
     </section>
-  );
-}
-
-function ResolveButton({
-  onClick,
-  disabled,
-  children,
-}: {
-  onClick: () => void;
-  disabled: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className="font-sans text-[12px] text-sage transition-opacity hover:opacity-70 disabled:opacity-40"
-    >
-      {children}
-    </button>
   );
 }

@@ -3,6 +3,7 @@
 // empty. Import only from server components / actions.
 
 import { getSupabase } from "./supabase";
+import { hasOpenAI } from "./env";
 import { isAppToday, appTodayStr } from "./time";
 import type { Digest, Idea, ReviewItem, Task, Thought } from "./types";
 import {
@@ -201,6 +202,33 @@ export function dayLineFromThoughts(thoughts: Thought[]): string {
   return `Today keeps circling back to ${themes[0]} and ${themes[1]}.`;
 }
 
+// A note that has reached Pebble but hasn't been sorted into its home yet.
+// Shown on Today the moment it lands, so your words are never invisible while
+// the sort runs (or if it stalls and waits for a retry).
+export interface ArrivingNote {
+  id: string;
+  transcript: string;
+  captured_at: string;
+  created_at: string;
+}
+
+export async function getArriving(): Promise<ArrivingNote[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from("captures")
+      .select("id, transcript, captured_at, created_at")
+      .eq("processed", false)
+      .order("created_at", { ascending: false })
+      .limit(12);
+    if (error) return [];
+    return (data ?? []) as ArrivingNote[];
+  } catch {
+    return [];
+  }
+}
+
 export interface TodayData {
   date: string;
   dayLine: string;
@@ -210,17 +238,20 @@ export interface TodayData {
   tasksToday: Task[];
   reviewItems: ReviewItem[];
   reviewCount: number;
+  arriving: ArrivingNote[];
+  canSort: boolean;
 }
 
 export async function getToday(): Promise<TodayData> {
   // Today only needs the most recent slice (it filters to today), so a modest
   // window keeps this light no matter how large the archive grows.
-  const [thoughts, ideas, tasks, digests, reviewItems] = await Promise.all([
+  const [thoughts, ideas, tasks, digests, reviewItems, arriving] = await Promise.all([
     getAllThoughts(80),
     getAllIdeas(80),
     getTasks(),
     getDigests(),
     getReviewItems(),
+    getArriving(),
   ]);
 
   const thoughtsToday = thoughts.filter((t) => isToday(t.captured_at));
@@ -242,6 +273,8 @@ export async function getToday(): Promise<TodayData> {
     tasksToday: tasksToday.slice(0, 5),
     reviewItems,
     reviewCount: reviewItems.length,
+    arriving,
+    canSort: hasOpenAI,
   };
 }
 
@@ -284,19 +317,21 @@ export async function getOpenNoodle(): Promise<
   }
 }
 
-// When the newest voice note arrived — so a silently broken webhook is visible
-// at a glance. Null when there are no captures yet (or no database).
-export async function getLastCaptureAt(): Promise<string | null> {
+// The newest voice note: when you spoke it (captured_at, from the ring's
+// payload when it sends one) and when it reached Pebble (created_at). The gap
+// between the two is time spent on the ring/phone side, before the webhook
+// fired. Null when there are no captures yet (or no database).
+export async function getLastCapture(): Promise<{ captured_at: string; created_at: string } | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
     const { data } = await supabase
       .from("captures")
-      .select("captured_at")
-      .order("captured_at", { ascending: false })
+      .select("captured_at, created_at")
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return (data as { captured_at?: string } | null)?.captured_at ?? null;
+    return (data as { captured_at: string; created_at: string } | null) ?? null;
   } catch {
     return null;
   }

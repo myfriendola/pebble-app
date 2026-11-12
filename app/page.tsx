@@ -6,6 +6,7 @@ import { IdeaRow } from "@/components/IdeaRow";
 import { TodoList } from "@/components/TodoList";
 import { TodayReflection } from "@/components/TodayReflection";
 import { DailyPrompt } from "@/components/DailyPrompt";
+import { JustArrived } from "@/components/JustArrived";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,15 @@ export default async function TodayPage() {
           </p>
         )}
       </div>
+
+      {/* New notes land here in your own words the moment they reach Pebble,
+          then move to their home once sorted. Unsure notes wait here too
+          (the evening reflection takes them over once it blooms). */}
+      <JustArrived
+        arriving={today.arriving}
+        review={bloomed ? [] : today.reviewItems}
+        canSort={today.canSort}
+      />
 
       <section className="animate-fade-in">
         <SectionLabel>Thoughts today</SectionLabel>

@@ -26,23 +26,31 @@ export function parseJsonLoose<T = unknown>(raw: string): T {
 
 // One call → parsed JSON. Uses OpenAI JSON mode; the prompts all instruct the
 // model to return only JSON. Returns null when OpenAI isn't configured.
+// `timeoutMs` / `maxRetries` override the SDK defaults (10 minutes, 2 retries),
+// which are far too patient for anything a person is waiting on.
 export async function chatJson<T = unknown>(
   system: string,
   user: string,
-  opts: { temperature?: number } = {},
+  opts: { temperature?: number; timeoutMs?: number; maxRetries?: number } = {},
 ): Promise<T | null> {
   const client = getOpenAI();
   if (!client) return null;
 
-  const res = await client.chat.completions.create({
-    model: env.openaiModel,
-    temperature: opts.temperature ?? 0.6,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: user },
-    ],
-  });
+  const res = await client.chat.completions.create(
+    {
+      model: env.openaiModel,
+      temperature: opts.temperature ?? 0.6,
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    },
+    {
+      ...(opts.timeoutMs ? { timeout: opts.timeoutMs } : {}),
+      ...(opts.maxRetries !== undefined ? { maxRetries: opts.maxRetries } : {}),
+    },
+  );
 
   const raw = res.choices[0]?.message?.content ?? "";
   return parseJsonLoose<T>(raw);
