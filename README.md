@@ -60,6 +60,13 @@ design is always visible; once Supabase is connected they show your real data.
   refreshes only when something changed. A new note shows on Today under
   **Just arrived** in your own words the moment it lands, then moves to its home
   once sorted. Notes the sorter wasn't sure about wait there too, ready to file.
+- **Arrival notifications** *(with push turned on)*. Once a note from the ring
+  is sorted, devices that keep **Notes from your ring** switched on (Settings →
+  Notifications) get a quiet receipt of where it went: "On your work list",
+  "Kept as a thought", "Saved as a spark". Several in a row fold into one
+  ("3 notes landed"), they stay quiet while Pebble is open and focused (except
+  on iPhone, where web apps must show every push), and opening the app clears
+  them. Only live arrivals notify; the nightly sweep and "sort now" never do.
 - Every Supabase read is `no-store`. Next 14 otherwise caches them in its Data
   Cache indefinitely, even on `force-dynamic` pages, which made new notes appear
   only when something happened to clear the cache.

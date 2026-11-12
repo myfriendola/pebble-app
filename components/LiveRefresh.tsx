@@ -12,10 +12,26 @@ import { useRouter } from "next/navigation";
 //
 // A brand-new note also fires a "pebble:arrival" window event, which the top
 // bar answers with a small ripple.
+//
+// When an arrival notification comes in, the service worker nudges any open
+// window so it checks straight away. And opening the app clears those
+// notifications from the tray: you're looking at the notes now.
 
 const IDLE_MS = 8_000;
 const SETTLING_MS = 2_500;
 const LOCKED_MS = 60_000;
+const ARRIVAL_TAG = "pebble-arrival"; // matches lib/push.ts
+
+function clearArrivalNotifications() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker
+    .getRegistration()
+    .then((reg) => reg?.getNotifications({ tag: ARRIVAL_TAG }))
+    .then((shown) => shown?.forEach((n) => n.close()))
+    .catch(() => {
+      /* unsupported: the notifications simply stay until tapped */
+    });
+}
 
 export function LiveRefresh() {
   const router = useRouter();
@@ -69,6 +85,7 @@ export function LiveRefresh() {
 
     const wake = () => {
       if (document.visibilityState === "visible") {
+        clearArrivalNotifications();
         void check();
       } else if (timer.current) {
         clearTimeout(timer.current);
@@ -76,7 +93,19 @@ export function LiveRefresh() {
       }
     };
 
+    const onWorkerMessage = (e: MessageEvent) => {
+      if ((e.data as { type?: string } | null)?.type !== "pebble:arrival") return;
+      void check();
+      // On iPhone the worker must show the banner even while you're in the app;
+      // if you're actively here, tidy it away once it has been posted.
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        setTimeout(clearArrivalNotifications, 1500);
+      }
+    };
+
+    clearArrivalNotifications();
     void check();
+    navigator.serviceWorker?.addEventListener("message", onWorkerMessage);
     document.addEventListener("visibilitychange", wake);
     window.addEventListener("focus", wake);
     window.addEventListener("online", wake);
@@ -84,6 +113,7 @@ export function LiveRefresh() {
     return () => {
       alive = false;
       if (timer.current) clearTimeout(timer.current);
+      navigator.serviceWorker?.removeEventListener("message", onWorkerMessage);
       document.removeEventListener("visibilitychange", wake);
       window.removeEventListener("focus", wake);
       window.removeEventListener("online", wake);
