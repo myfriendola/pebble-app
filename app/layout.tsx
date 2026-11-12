@@ -5,6 +5,7 @@ import { NavRail } from "@/components/NavRail";
 import { TopBar } from "@/components/TopBar";
 import { OpeningSequence } from "@/components/OpeningSequence";
 import { PwaRegister } from "@/components/PwaRegister";
+import { LiveRefresh } from "@/components/LiveRefresh";
 
 // Clean sans for UI; serif (with italic) for the user's words and the app's
 // gentle questions.
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </div>
         <OpeningSequence />
         <PwaRegister />
+        <LiveRefresh />
       </body>
     </html>
   );

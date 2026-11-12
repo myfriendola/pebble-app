@@ -1,8 +1,11 @@
 // POST /api/capture — receives transcriptions from the Pebble ring's webhook.
 // Guarded by a shared secret in the query string (?secret=CAPTURE_SECRET).
-// Inserts a raw capture and returns 200 quickly; the nightly job sorts it later.
+// Saves the raw capture and answers 200 straight away, then sorts it in the
+// background (waitUntil) so the Pebble app never sits waiting on the AI. The
+// nightly job sweeps anything the background sort didn't finish.
 
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { getSupabase } from "@/lib/supabase";
 import { env, hasSupabase, hasOpenAI } from "@/lib/env";
 import { sortAndFileCapture } from "@/lib/processing";
@@ -206,19 +209,21 @@ export async function POST(req: Request) {
     );
   }
 
-  // Sort-on-capture: file this note right away so it appears on the right
-  // screen within seconds. Best-effort — if it fails, the note stays saved
-  // (processed = false) and the nightly sweep will sort it. The daily
-  // reflection is still written on the evening schedule, not here.
-  let sorted = false;
+  // Sort-on-capture, after the reply. The note is already saved, so the app
+  // shows its words on Today the moment the next refresh lands; the sort then
+  // files it into its home a second or two later. waitUntil keeps the function
+  // alive for that work on Vercel (and is a harmless no-op in local dev, where
+  // the server stays up anyway). If the sort fails, the note stays
+  // processed = false and is retried from Today or by the nightly sweep.
+  const sorting = Boolean(inserted && hasOpenAI);
   if (inserted && hasOpenAI) {
-    try {
-      const r = await sortAndFileCapture(supabase, inserted);
-      sorted = r.ok;
-    } catch (e) {
-      console.error("sort-on-capture failed:", e);
-    }
+    const capture = inserted;
+    waitUntil(
+      sortAndFileCapture(supabase, capture).catch((e) => {
+        console.error("sort-on-capture failed:", e);
+      }),
+    );
   }
 
-  return NextResponse.json({ ok: true, sorted }, { status: 200 });
+  return NextResponse.json({ ok: true, id: inserted?.id, sorting }, { status: 200 });
 }

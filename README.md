@@ -49,10 +49,20 @@ design is always visible; once Supabase is connected they show your real data.
 
 ## How it runs
 
-- `POST /api/capture?secret=…` — stores each transcription **and sorts it on the
-  spot** (task / thought / idea, work / life), so it appears on the right screen
-  within seconds. Sorting is best-effort; if it fails the note is still saved and
-  the nightly sweep sorts it later.
+- `POST /api/capture?secret=…` — saves each transcription and **answers the
+  Pebble app immediately**, then sorts the note in the background (task / thought
+  / idea, work / life). The ring's webhook never waits on the AI, so it doesn't
+  time out or resend. If the sort fails, the note is still saved; Today offers
+  “sort now” after a minute and a half, and the nightly sweep catches the rest.
+- **Notes appear live.** While the app is open, it asks `GET /api/pulse` whether
+  anything new has landed (right away when you return to the app, every few
+  seconds while a note is mid-sort, every 8s otherwise, never when hidden) and
+  refreshes only when something changed. A new note shows on Today under
+  **Just arrived** in your own words the moment it lands, then moves to its home
+  once sorted. Notes the sorter wasn't sure about wait there too, ready to file.
+- Every Supabase read is `no-store`. Next 14 otherwise caches them in its Data
+  Cache indefinitely, even on `force-dynamic` pages, which made new notes appear
+  only when something happened to clear the cache.
 - `POST|GET /api/cron/nightly` — sweeps any unsorted captures, then writes the
   **daily reflection**.
 - `POST|GET /api/cron/nightly-recap` — a later same-day pass that refreshes the

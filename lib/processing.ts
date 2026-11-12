@@ -107,16 +107,20 @@ async function writeDigest(
 }
 
 // Distinct theme tags already in use, most-frequent first — primes the sorter
-// to reuse tags instead of coining near-duplicates.
+// to reuse tags instead of coining near-duplicates. `recentRows` reads only the
+// newest N notes per table, so the per-capture path stays quick as the archive
+// grows (the nightly regroup still reads everything).
 export async function loadThemeVocabulary(
   supabase: SupabaseClient,
   limit = 60,
+  recentRows?: number,
 ): Promise<string[]> {
   try {
-    const [t, i] = await Promise.all([
-      supabase.from("thoughts").select("themes"),
-      supabase.from("ideas").select("themes"),
-    ]);
+    const recent = (table: "thoughts" | "ideas") => {
+      const q = supabase.from(table).select("themes");
+      return recentRows ? q.order("captured_at", { ascending: false }).limit(recentRows) : q;
+    };
+    const [t, i] = await Promise.all([recent("thoughts"), recent("ideas")]);
     const counts = new Map<string, number>();
     for (const row of [...(t.data ?? []), ...(i.data ?? [])]) {
       for (const theme of (row as { themes?: string[] }).themes ?? []) {
@@ -142,13 +146,16 @@ export async function sortAndFileCapture(
   capture: { id: string; transcript: string; captured_at: string },
   vocabulary?: string[],
 ): Promise<{ committed: number; review: number; ok: boolean }> {
-  const vocab = vocabulary ?? (await loadThemeVocabulary(supabase));
+  const vocab = vocabulary ?? (await loadThemeVocabulary(supabase, 60, 600));
   let items: SortResult[] = [];
   try {
+    // A sort normally takes a second or two. Give up well inside the function's
+    // 60s budget so a stalled call leaves the note unsorted (and retryable)
+    // rather than killed mid-way.
     const parsed = await chatJson<unknown>(
       SORT_SYSTEM,
       buildSortUser([capture.transcript], vocab),
-      { temperature: 0.2 },
+      { temperature: 0.2, timeoutMs: 20_000, maxRetries: 1 },
     );
     items = normalizeSortArray(parsed);
   } catch {
@@ -157,6 +164,9 @@ export async function sortAndFileCapture(
 
   let committed = 0;
   let review = 0;
+  // Embeddings only power search, so they run after the note is marked
+  // settled. The screens never wait on them.
+  const toEmbed: { table: "thoughts" | "ideas"; id: string }[] = [];
 
   for (const item of items) {
     const confidence = typeof item.confidence === "number" ? item.confidence : 0;
@@ -192,7 +202,7 @@ export async function sortAndFileCapture(
         })
         .select("id")
         .single();
-      if (row) await embedRow(supabase, "ideas", (row as { id: string }).id, capture.transcript);
+      if (row) toEmbed.push({ table: "ideas", id: (row as { id: string }).id });
       committed += 1;
     } else {
       const { data: row } = await supabase
@@ -204,13 +214,36 @@ export async function sortAndFileCapture(
         })
         .select("id")
         .single();
-      if (row) await embedRow(supabase, "thoughts", (row as { id: string }).id, capture.transcript);
+      if (row) toEmbed.push({ table: "thoughts", id: (row as { id: string }).id });
       committed += 1;
     }
   }
 
   await supabase.from("captures").update({ processed: true }).eq("id", capture.id);
+  for (const e of toEmbed) await embedRow(supabase, e.table, e.id, capture.transcript);
   return { committed, review, ok: true };
+}
+
+// Sort captures that arrived but never got filed (the background sort failed or
+// was cut short). Only touches notes older than `minAgeMs` (longer than the
+// webhook function can live) so it never races a sort that's still running.
+export async function settleStaleCaptures(minAgeMs = 90_000): Promise<number> {
+  const supabase = getSupabase();
+  if (!supabase || !hasOpenAI) return 0;
+  const before = new Date(Date.now() - minAgeMs).toISOString();
+  const { data } = await supabase
+    .from("captures")
+    .select("id, transcript, captured_at")
+    .eq("processed", false)
+    .lt("created_at", before)
+    .order("captured_at", { ascending: true })
+    .limit(10);
+  let settled = 0;
+  for (const capture of data ?? []) {
+    const r = await sortAndFileCapture(supabase, capture);
+    if (r.ok) settled += 1;
+  }
+  return settled;
 }
 
 // ── Nightly: sweep any unsorted captures, then write the daily reflection. ──

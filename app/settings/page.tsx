@@ -1,4 +1,4 @@
-import { getLastCaptureAt } from "@/lib/data";
+import { getLastCapture } from "@/lib/data";
 import { ScreenHeader } from "@/components/ui";
 import { CaptureHealth } from "@/components/CaptureHealth";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
@@ -29,7 +29,7 @@ function Section({
 }
 
 export default async function SettingsPage() {
-  const lastCaptureAt = await getLastCaptureAt();
+  const lastCapture = await getLastCapture();
 
   return (
     <div>
@@ -41,7 +41,7 @@ export default async function SettingsPage() {
 
       <div className="space-y-10 border-t border-hairline pt-8">
         <Section label="Capture" description="When your ring last reached Pebble.">
-          <CaptureHealth iso={lastCaptureAt} />
+          <CaptureHealth last={lastCapture} />
         </Section>
 
         <Section
