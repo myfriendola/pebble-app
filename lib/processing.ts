@@ -12,7 +12,7 @@ import { SUMMARIZE_SYSTEM, buildSummarizeUser } from "./prompts/summarize";
 import { GROUP_SYSTEM, buildGroupUser } from "./prompts/group";
 import { startOfAppTodayIso, appTodayStr } from "./time";
 import { addThreadItems, threadsForSort } from "./threads";
-import { noticeThreads } from "./threadWork";
+import { noticeThreads, type NoticeResult } from "./threadWork";
 import type { DigestKind, ItemRef, SortResult, SummaryResult } from "./types";
 
 const CONFIDENCE_FLOOR = 0.6;
@@ -24,6 +24,7 @@ export interface PipelineReport {
   committed?: number;
   review?: number;
   digest?: DigestKind | null;
+  threads?: NoticeResult; // what looking for a new thread found
 }
 
 // Coerce the sort model's output into an array of note objects, whatever the
@@ -336,10 +337,6 @@ export async function runNightly(
   // Keep the theme groups fresh for the filter (best-effort, once a run).
   await regroupThemes(supabase);
 
-  // Look for a subject worth its own thread, and ask about it on Today
-  // (best-effort; one question at a time).
-  await noticeThreads(supabase);
-
   // Fill in embeddings for any notes still missing one (no-op unless semantic
   // search is enabled), so older captures become findable over a few nights.
   await backfillEmbeddings(supabase);
@@ -389,7 +386,12 @@ export async function runNightly(
     }
   }
 
-  return { ok: true, processed: pending.length, committed, review, digest: wroteDigest };
+  // Last, look for a subject worth its own thread and ask about it on Today
+  // (one question at a time). After the reflection, so a slow look can never
+  // cost tonight's reflection.
+  const threads = await noticeThreads(supabase);
+
+  return { ok: true, processed: pending.length, committed, review, digest: wroteDigest, threads };
 }
 
 // ── Weekly / monthly: the same summarize prompt over a wider window. ──

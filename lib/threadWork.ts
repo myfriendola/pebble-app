@@ -71,19 +71,45 @@ export function qualifies(named: boolean, notes: ThreadNote[]): boolean {
   return notes.length >= 5 && days.size >= 3;
 }
 
-// ── Noticing (nightly) ──────────────────────────────────────────────────────
+// ── Noticing (nightly, or "Look now") ───────────────────────────────────────
 // Looks over the last 30 days for one subject worth asking about. Only one
 // question is ever open at a time; "not a thing" is never asked again, and
 // "not yet" waits until three more notes have gathered.
-export async function noticeThreads(supabase: Db): Promise<string | null> {
-  if (!hasOpenAI) return null;
+//
+// Says what happened, so the app can explain itself: what it asked about, or
+// what came closest and why it didn't ask.
+export interface NearMiss {
+  title: string;
+  count: number;
+  days: number;
+  named: boolean;
+  why: "below-bar" | "declined" | "snoozed" | "exists";
+  waitUntil?: number;
+}
+export type NoticeResult =
+  | { status: "asked"; title: string }
+  | { status: "already-asking"; title: string }
+  | { status: "nothing"; near: NearMiss[] }
+  | { status: "too-few-notes"; count: number }
+  | { status: "not-set-up" }
+  | { status: "no-ai" }
+  | { status: "error" };
+
+export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
+  if (!hasOpenAI) return { status: "no-ai" };
   try {
-    const open = await supabase.from("thread_suggestions").select("id").eq("status", "pending").limit(1);
-    if (open.error || (open.data ?? []).length > 0) return null; // table missing, or already asking
+    const open = await supabase
+      .from("thread_suggestions")
+      .select("id, title")
+      .eq("status", "pending")
+      .limit(1);
+    if (open.error) return { status: "not-set-up" };
+    const asking = (open.data ?? []) as { title: string }[];
+    if (asking.length > 0) return { status: "already-asking", title: asking[0].title };
 
     const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const recent = (await loadNotes(supabase, { since, limit: 400 })).reverse(); // oldest first
-    if (recent.length < 3) return null;
+    if (recent.length < 3) return { status: "too-few-notes", count: recent.length };
 
     const [threadsRes, pastRes, itemsRes] = await Promise.all([
       supabase.from("threads").select("id, title"),
@@ -121,6 +147,7 @@ export async function noticeThreads(supabase: Db): Promise<string | null> {
     });
 
     const takenTitles = new Set(existing.map(normKey));
+    const near: NearMiss[] = [];
     for (const s of parsed?.subjects ?? []) {
       const title = (s.title ?? "").trim();
       if (!title) continue;
@@ -129,18 +156,36 @@ export async function noticeThreads(supabase: Db): Promise<string | null> {
       const notes = refs
         .map((r) => recent.find((n) => n.kind === r.kind && n.id === r.id))
         .filter((n): n is ThreadNote => Boolean(n));
-      if (!qualifies(Boolean(s.named), notes)) continue;
-      if (takenTitles.has(normKey(title))) continue;
+      const days = new Set(notes.map((n) => appTodayStr(new Date(n.captured_at)))).size;
+      const miss = (why: NearMiss["why"], waitUntil?: number) =>
+        near.push({ title, count: notes.length, days, named: Boolean(s.named), why, ...(waitUntil ? { waitUntil } : {}) });
+      if (!qualifies(Boolean(s.named), notes)) {
+        miss("below-bar");
+        continue;
+      }
+      if (takenTitles.has(normKey(title))) {
+        miss("exists");
+        continue;
+      }
 
       // Mostly already gathered by an existing thread under another name? Skip.
       const covered = Array.from(inThread.values()).some(
         (set) => refs.filter((r) => set.has(refKey(r))).length >= Math.ceil(refs.length * 0.6),
       );
-      if (covered) continue;
+      if (covered) {
+        miss("exists");
+        continue;
+      }
 
       const prior = past.find((p) => p.subject_key === key || normKey(p.title) === normKey(title));
-      if (prior && prior.status !== "snoozed") continue; // declined, accepted or already asked
-      if (prior && refs.length < (prior.snooze_until_count ?? 0)) continue; // "not yet": wait
+      if (prior && prior.status !== "snoozed") {
+        miss(prior.status === "declined" ? "declined" : "exists"); // declined, or accepted
+        continue;
+      }
+      if (prior && refs.length < (prior.snooze_until_count ?? 0)) {
+        miss("snoozed", prior.snooze_until_count ?? undefined); // "not yet": wait
+        continue;
+      }
 
       const firstAt = notes.reduce((min, n) => (n.captured_at < min ? n.captured_at : min), notes[0].captured_at);
       const row = {
@@ -155,12 +200,42 @@ export async function noticeThreads(supabase: Db): Promise<string | null> {
       };
       if (prior) await supabase.from("thread_suggestions").update(row).eq("id", prior.id);
       else await supabase.from("thread_suggestions").insert(row);
-      return title;
+      return { status: "asked", title };
     }
-    return null;
+    return { status: "nothing", near: near.slice(0, 3) };
   } catch (e) {
     console.error("noticeThreads failed:", e);
-    return null;
+    return { status: "error" };
+  }
+}
+
+// One plain sentence about what noticing found, for Settings and the Threads tab.
+export function describeNotice(r: NoticeResult): string {
+  switch (r.status) {
+    case "asked":
+      return `Noticed ${r.title}. Pebble is asking about it on Today.`;
+    case "already-asking":
+      return `Already asking about ${r.title}. Answer that first; one question at a time.`;
+    case "too-few-notes":
+      return `Only ${r.count} note${r.count === 1 ? "" : "s"} in the last 30 days, not enough to see a pattern yet.`;
+    case "not-set-up":
+      return "Threads isn't set up yet: run the Threads SQL in Supabase.";
+    case "no-ai":
+      return "Looking for threads needs the OpenAI key.";
+    case "error":
+      return "Couldn't look for threads just now. Try again in a moment.";
+    case "nothing": {
+      const m = r.near[0];
+      if (!m) return "Nothing you've come back to enough yet this month.";
+      const notes = `${m.count} note${m.count === 1 ? "" : "s"}`;
+      if (m.why === "declined") return `Closest was ${m.title}, which you said isn't a thing.`;
+      if (m.why === "exists") return `Closest was ${m.title}, which already has a thread.`;
+      if (m.why === "snoozed")
+        return `Closest was ${m.title} (${notes}); you said not yet, so it asks again at ${m.waitUntil}.`;
+      return m.named
+        ? `Closest was ${m.title}: ${notes} this month. It asks once something comes up 3 times.`
+        : `Closest was ${m.title}: ${notes} over ${m.days} day${m.days === 1 ? "" : "s"}. It asks at 5 notes over 3 days.`;
+    }
   }
 }
 

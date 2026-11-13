@@ -7,7 +7,9 @@ import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
 import {
   acceptSuggestion,
+  describeNotice,
   gatherIntoThread,
+  noticeThreads,
   setSuggestionStatus,
   writeThreadRead,
 } from "@/lib/threadWork";
@@ -20,6 +22,16 @@ function refresh(threadId?: string) {
   revalidatePath("/");
   revalidatePath("/threads");
   if (threadId) revalidatePath(`/threads/${threadId}`);
+}
+
+// "Look now": look for a subject worth a thread right away, instead of waiting
+// for tonight, and say plainly what was found (or what came closest).
+export async function lookForThreads(): Promise<{ asked: boolean; message: string }> {
+  const supabase = getSupabase();
+  if (!supabase) return { asked: false, message: "The database isn't connected." };
+  const r = await noticeThreads(supabase);
+  if (r.status === "asked" || r.status === "already-asking") refresh();
+  return { asked: r.status === "asked", message: describeNotice(r) };
 }
 
 // "Make a thread" → the new thread's id (the card then opens it).

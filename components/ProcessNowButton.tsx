@@ -10,12 +10,15 @@ import type { PipelineReport } from "@/lib/processing";
 export function ProcessNowButton() {
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
+  const [threadsNote, setThreadsNote] = useState<string | null>(null);
 
   function run() {
     setNote(null);
+    setThreadsNote(null);
     startTransition(async () => {
       try {
-        const r: PipelineReport = await processNow();
+        const r: PipelineReport & { threadsNote?: string } = await processNow();
+        setThreadsNote(r.threadsNote ?? null);
         if (!r.ok) {
           setNote(r.reason ?? "Couldn't process just now.");
         } else if ((r.processed ?? 0) === 0) {
@@ -32,15 +35,20 @@ export function ProcessNowButton() {
   }
 
   return (
-    <div className="flex items-center gap-3">
-      <button
-        onClick={run}
-        disabled={pending}
-        className="rounded-full border border-hairline px-4 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
-      >
-        {pending ? "Processing…" : "Process now"}
-      </button>
-      {note ? <span className="font-sans text-[12px] text-ink-muted">{note}</span> : null}
+    <div>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={run}
+          disabled={pending}
+          className="rounded-full border border-hairline px-4 py-1.5 font-sans text-[12px] text-ink-secondary transition-colors hover:border-sage-ring hover:text-sage disabled:opacity-50"
+        >
+          {pending ? "Processing…" : "Process now"}
+        </button>
+        {note ? <span className="font-sans text-[12px] text-ink-muted">{note}</span> : null}
+      </div>
+      {threadsNote ? (
+        <p className="mt-2 font-sans text-[12px] leading-[1.6] text-ink-muted">Threads: {threadsNote}</p>
+      ) : null}
     </div>
   );
 }
