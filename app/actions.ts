@@ -6,17 +6,19 @@
 
 import { revalidatePath } from "next/cache";
 import { runNightly, analyzeText, settleStaleCaptures } from "@/lib/processing";
+import { describeNotice } from "@/lib/threadWork";
 import type { PipelineReport } from "@/lib/processing";
 import { getSupabase } from "@/lib/supabase";
 import type { Domain, SortResult } from "@/lib/types";
 
-export async function processNow(): Promise<PipelineReport> {
+export async function processNow(): Promise<PipelineReport & { threadsNote?: string }> {
   const report = await runNightly();
   revalidatePath("/");
   revalidatePath("/thoughts");
   revalidatePath("/tasks");
   revalidatePath("/reflections");
-  return report;
+  revalidatePath("/threads");
+  return { ...report, ...(report.threads ? { threadsNote: describeNotice(report.threads) } : {}) };
 }
 
 // "Sort now" on a note that's been waiting on Today: retry the sort for any

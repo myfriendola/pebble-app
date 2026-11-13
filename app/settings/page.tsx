@@ -7,6 +7,9 @@ import { ExportLinks } from "@/components/ExportLinks";
 import { ProcessNowButton } from "@/components/ProcessNowButton";
 
 export const dynamic = "force-dynamic";
+// "Process now" runs the whole nightly pass from this page (sorting, the
+// reflection, looking for threads); give it room to finish.
+export const maxDuration = 60;
 
 function Section({
   label,

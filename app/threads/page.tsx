@@ -2,9 +2,12 @@ import Link from "next/link";
 import { getPendingSuggestion, getThreadSummaries } from "@/lib/threads";
 import { ScreenHeader, Whisper } from "@/components/ui";
 import { ThreadSuggestionCard } from "@/components/ThreadSuggestionCard";
+import { LookForThreads } from "@/components/LookForThreads";
 import { countPhrase, timeAgo } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+// "Look now" runs a full look over the last 30 days from this page.
+export const maxDuration = 60;
 
 export default async function ThreadsPage() {
   const [{ threads, missing }, suggestion] = await Promise.all([
@@ -69,6 +72,9 @@ export default async function ThreadsPage() {
               })}
             </div>
           )}
+
+          {/* While Pebble is already asking, there's nothing more to look for. */}
+          {suggestion ? null : <LookForThreads />}
         </div>
       )}
     </div>
