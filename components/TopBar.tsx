@@ -3,10 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Search, Settings } from "lucide-react";
+import { Moon, Search, Settings } from "lucide-react";
 
-// A slim, sticky top bar: the wordmark, and the two utility destinations
-// (Search, Settings) lifted out of the main nav so the tab bar can breathe.
+// A slim, sticky top bar: the wordmark, and the places you visit now and then
+// (past Reflections, Search, Settings), lifted out of the tab bar so it can
+// breathe. Tonight's reflection still blooms at the top of Today; the moon is
+// the archive, and wears a small dot when a new weekly or monthly one waits.
 //
 // When a new note lands while the app is open (LiveRefresh fires
 // "pebble:arrival"), the wordmark ripples once, like a pebble dropped in still
@@ -21,6 +23,41 @@ export function TopBar() {
     window.addEventListener("pebble:arrival", onArrival);
     return () => window.removeEventListener("pebble:arrival", onArrival);
   }, []);
+  // The dot on the moon: a weekly / monthly reflection newer than your last
+  // visit to Reflections. Remembered per device; old ones never light it.
+  const [reflectionWaiting, setReflectionWaiting] = useState(false);
+  const onReflections = active("/reflections");
+  useEffect(() => {
+    const KEY = "pebble.reflectionsSeenAt";
+    const seen = () => {
+      try {
+        return window.localStorage.getItem(KEY);
+      } catch {
+        return null;
+      }
+    };
+    const markSeen = () => {
+      try {
+        window.localStorage.setItem(KEY, new Date().toISOString());
+      } catch {
+        /* private mode: the dot simply won't persist */
+      }
+    };
+    if (onReflections) {
+      markSeen();
+      setReflectionWaiting(false);
+    } else if (!seen()) {
+      markSeen(); // first visit: start from now
+    }
+    const onPulse = (e: Event) => {
+      const at = (e as CustomEvent<{ reflectionAt?: string | null }>).detail?.reflectionAt;
+      const last = seen();
+      setReflectionWaiting(Boolean(at && last && at > last && !onReflections));
+    };
+    window.addEventListener("pebble:pulse", onPulse);
+    return () => window.removeEventListener("pebble:pulse", onPulse);
+  }, [onReflections]);
+
   useEffect(() => {
     if (!ripple) return;
     const t = setTimeout(() => setRipple(0), 2400);
@@ -49,6 +86,21 @@ export function TopBar() {
           {ripple ? "A new note just arrived" : ""}
         </span>
         <nav className="flex items-center gap-1" aria-label="Utilities">
+          <IconLink
+            href="/reflections"
+            label={reflectionWaiting ? "Reflections (a new one is waiting)" : "Reflections"}
+            active={onReflections}
+          >
+            <span className="relative">
+              <Moon size={18} strokeWidth={1.6} />
+              {reflectionWaiting ? (
+                <span
+                  aria-hidden
+                  className="absolute -right-0.5 -top-0.5 h-[7px] w-[7px] rounded-full border border-paper bg-sage-ring2"
+                />
+              ) : null}
+            </span>
+          </IconLink>
           <IconLink href="/search" label="Search" active={active("/search")}>
             <Search size={18} strokeWidth={1.6} />
           </IconLink>

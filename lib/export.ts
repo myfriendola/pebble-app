@@ -16,6 +16,9 @@ const TABLES = [
   "digests",
   "review_queue",
   "theme_groups",
+  "threads",
+  "thread_items",
+  "thread_suggestions",
 ] as const;
 
 export interface ExportBundle {
@@ -104,6 +107,18 @@ export function toMarkdown(b: ExportBundle): string {
       out.push(`- [${done ? "x" : " "}] ${String(t.action ?? "").trim()} · ${t.domain}${due}`);
     }
     out.push("");
+  }
+
+  // ── Threads ─────────────────────────────────────────────────────────────
+  const threads = b.data.threads ?? [];
+  if (threads.length > 0) {
+    out.push("## Threads", "");
+    for (const th of threads) {
+      out.push(`### ${String(th.title ?? "").trim()}`, "");
+      if (th.description) out.push(`_${String(th.description).trim()}_`, "");
+      const gist = (th.read as { gist?: string } | null)?.gist;
+      if (gist) out.push(`> ${gist.trim()}`, "");
+    }
   }
 
   return out.join("\n");

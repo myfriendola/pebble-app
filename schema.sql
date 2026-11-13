@@ -112,6 +112,60 @@ create table if not exists push_subscriptions (
   created_at   timestamptz not null default now()
 );
 
+-- ============================================================================
+-- Threads
+-- A home for a subject you keep coming back to (a project like "Throughline",
+-- or an ongoing topic). Pebble notices one, asks before making it, gathers the
+-- notes that belong, and writes a candid read of them. Safe to run more than
+-- once — every statement is guarded.
+-- ============================================================================
+
+-- One row per thread. `read` holds Pebble's latest read (gist, recurring,
+-- tensions, shifts, questions, moves, each citing its notes).
+create table if not exists threads (
+  id               uuid primary key default gen_random_uuid(),
+  title            text not null,
+  description      text,
+  read             jsonb,
+  read_at          timestamptz,
+  read_item_count  int not null default 0,
+  created_at       timestamptz not null default now()
+);
+
+-- Which notes belong to which thread. A note can sit in several threads and
+-- still lives in Thoughts / Ideas / Tasks; a thread only collects. `removed`
+-- remembers "not about this" so the note isn't gathered again.
+create table if not exists thread_items (
+  id          uuid primary key default gen_random_uuid(),
+  thread_id   uuid not null references threads(id) on delete cascade,
+  item_kind   text not null check (item_kind in ('thought', 'idea', 'work_task', 'life_task')),
+  item_id     uuid not null,
+  removed     boolean not null default false,
+  added_by    text not null default 'pebble',
+  created_at  timestamptz not null default now(),
+  unique (thread_id, item_kind, item_id)
+);
+create index if not exists thread_items_item_idx on thread_items (item_kind, item_id);
+
+-- Subjects Pebble has noticed and asked about. One is shown at a time.
+-- status: pending (asking) · accepted (became a thread) · declined ("not a
+-- thing", never asked again) · snoozed ("not yet", asked again after more notes).
+create table if not exists thread_suggestions (
+  id                  uuid primary key default gen_random_uuid(),
+  subject_key         text not null unique,
+  title               text not null,
+  description         text,
+  items               jsonb not null default '[]'::jsonb,
+  note_count          int not null default 0,
+  first_at            timestamptz,
+  status              text not null default 'pending'
+                        check (status in ('pending', 'accepted', 'declined', 'snoozed')),
+  snooze_until_count  int,
+  thread_id           uuid references threads(id) on delete set null,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
+);
+
 -- Helpful indexes for the day / stream / reflection queries.
 create index if not exists captures_processed_idx  on captures (processed, captured_at);
 create index if not exists thoughts_captured_idx    on thoughts (captured_at desc);

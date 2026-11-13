@@ -20,7 +20,8 @@ Built to the spec in [`pebble-index-app-build-guide-online.md`](./pebble-index-a
    [`schema.sql`](./schema.sql) and **Run**. It creates every table (no seed
    data — the app starts empty and fills as you capture notes).
    *Already ran an earlier version?* Run [`migration.sql`](./migration.sql)
-   instead — it adds just the new `ideas` table and `noodles.idea_id`.
+   instead. Every statement in it is guarded, so it's safe to run again; for
+   **Threads**, the section at the end of that file is all you need.
 2. **Set the five environment variables** in Vercel → Project → Settings →
    Environment Variables (see [`.env.example`](./.env.example)):
    - `OPENAI_API_KEY`
@@ -60,6 +61,20 @@ design is always visible; once Supabase is connected they show your real data.
   refreshes only when something changed. A new note shows on Today under
   **Just arrived** in your own words the moment it lands, then moves to its home
   once sorted. Notes the sorter wasn't sure about wait there too, ready to file.
+- **Threads.** The nightly job looks over the last 30 days for a subject you
+  keep coming back to: a named thing (like an app you're building) after 3
+  notes, or any other topic after 5 notes spread over 3 different days. It then
+  asks on Today, one question at a time: *Make a thread*, *Not yet* (asks again
+  after 3 more notes) or *Not a thing* (never asks again). A thread gathers the
+  thoughts, ideas and tasks about it (older ones too, once it's made), and new
+  notes join as they're sorted. **Pebble's read** is a candid but kind take:
+  the gist, what keeps coming up, tensions, what's shifted, open questions and
+  next moves, each citing the notes behind it. It rewrites itself once 3 new
+  notes have joined. Swipe a note for *Not about this*; it stays where it lives.
+  Needs the Threads section of `migration.sql`.
+- **Navigation.** Five tabs (Today, Thoughts, Ideas, Threads, Tasks); the one
+  you're on names itself. Past reflections live under the moon in the top bar,
+  which shows a small dot when a new weekly or monthly one is waiting.
 - **Arrival notifications** *(with push turned on)*. Once a note from the ring
   is sorted, devices that keep **Notes from your ring** switched on (Settings →
   Notifications) get a quiet receipt of where it went: "On your work list",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sun, MessageCircle, Lightbulb, CheckSquare, Moon, type LucideIcon } from "lucide-react";
+import { Sun, MessageCircle, Lightbulb, Spline, CheckSquare, type LucideIcon } from "lucide-react";
 
 type Item = { href: string; label: string; Icon: LucideIcon };
 
@@ -10,8 +10,8 @@ const CONTENT: Item[] = [
   { href: "/", label: "Today", Icon: Sun },
   { href: "/thoughts", label: "Thoughts", Icon: MessageCircle },
   { href: "/ideas", label: "Ideas", Icon: Lightbulb },
+  { href: "/threads", label: "Threads", Icon: Spline },
   { href: "/tasks", label: "Tasks", Icon: CheckSquare },
-  { href: "/reflections", label: "Reflections", Icon: Moon },
 ];
 
 function isActive(pathname: string, href: string): boolean {
@@ -53,10 +53,12 @@ export function NavRail() {
         })}
       </nav>
 
-      {/* Phone: bottom bar — five content tabs, roomy. */}
+      {/* Phone: bottom bar. Five tabs; the one you're on names itself in a
+          soft sage pill that glides over when you switch, so every icon
+          (Threads included) introduces itself the first time you tap it. */}
       <nav
         aria-label="Primary"
-        className="sm:hidden fixed inset-x-0 bottom-0 z-30 flex items-stretch border-t border-hairline bg-paper/90 backdrop-blur-md"
+        className="sm:hidden fixed inset-x-0 bottom-0 z-30 flex items-stretch justify-around border-t border-hairline bg-paper/90 px-2 backdrop-blur-md"
         style={{ height: "calc(4rem + env(safe-area-inset-bottom))", paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {CONTENT.map((item) => {
@@ -67,15 +69,24 @@ export function NavRail() {
               href={item.href}
               aria-label={item.label}
               aria-current={active ? "page" : undefined}
-              className="flex flex-1 items-center justify-center"
+              className="flex items-center justify-center px-0.5"
             >
               <span
                 className={[
-                  "grid h-10 w-10 place-items-center rounded-full transition-colors",
-                  active ? "bg-sage-tint text-sage" : "text-ink-muted",
+                  "flex h-10 items-center rounded-full transition-all duration-300 ease-out motion-reduce:transition-none",
+                  active ? "bg-sage-tint pl-[11px] pr-[15px] text-sage" : "px-[9.5px] text-ink-muted",
                 ].join(" ")}
               >
-                <item.Icon size={21} strokeWidth={1.5} />
+                <item.Icon size={21} strokeWidth={1.5} className="shrink-0" />
+                <span
+                  aria-hidden
+                  className={[
+                    "overflow-hidden whitespace-nowrap font-sans text-[13px] font-medium tracking-[0.01em] transition-all duration-300 ease-out motion-reduce:transition-none",
+                    active ? "ml-[7px] max-w-[96px] opacity-100" : "ml-0 max-w-0 opacity-0",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </span>
               </span>
             </Link>
           );

@@ -12,10 +12,20 @@ export function SwipeRow({
   onDelete,
   children,
   contentClassName = "py-5",
+  actionLabel = "Delete",
+  actionAria = "Delete entry",
+  actionClassName = "bg-clay",
+  id,
 }: {
   onDelete: () => Promise<unknown> | void;
   children: React.ReactNode;
   contentClassName?: string;
+  // The revealed action. Defaults to Delete; a thread uses a quieter "Not
+  // about this", since the note itself stays.
+  actionLabel?: React.ReactNode;
+  actionAria?: string;
+  actionClassName?: string;
+  id?: string;
 }) {
   const [offset, setOffset] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -105,17 +115,17 @@ export function SwipeRow({
   const open = offset !== 0;
 
   return (
-    <div className="relative overflow-hidden">
+    <div id={id} className="relative overflow-hidden">
       <div className="absolute inset-y-0 right-0 flex items-stretch" aria-hidden={!open}>
         <button
           onClick={doDelete}
           disabled={pending}
-          aria-label="Delete entry"
+          aria-label={actionAria}
           tabIndex={open ? 0 : -1}
           style={{ width: ACTION_W }}
-          className="flex items-center justify-center bg-clay font-sans text-[12px] uppercase tracking-label text-paper transition-opacity disabled:opacity-60"
+          className={`flex items-center justify-center px-2 text-center font-sans text-[11px] uppercase leading-tight tracking-label text-paper transition-opacity disabled:opacity-60 ${actionClassName}`}
         >
-          {pending ? "…" : "Delete"}
+          {pending ? "…" : actionLabel}
         </button>
       </div>
 

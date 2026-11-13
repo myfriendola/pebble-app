@@ -7,11 +7,17 @@ import { TodoList } from "@/components/TodoList";
 import { TodayReflection } from "@/components/TodayReflection";
 import { DailyPrompt } from "@/components/DailyPrompt";
 import { JustArrived } from "@/components/JustArrived";
+import { ThreadSuggestionCard } from "@/components/ThreadSuggestionCard";
+import { getPendingSuggestion } from "@/lib/threads";
 
 export const dynamic = "force-dynamic";
 
 export default async function TodayPage() {
-  const [today, openNoodle] = await Promise.all([getToday(), getOpenNoodle()]);
+  const [today, openNoodle, suggestion] = await Promise.all([
+    getToday(),
+    getOpenNoodle(),
+    getPendingSuggestion(),
+  ]);
 
   // The top zone blooms into the full reflection once the day's reflection
   // exists (written nightly / by "Process now"); until then it holds one
@@ -44,6 +50,10 @@ export default async function TodayPage() {
         review={bloomed ? [] : today.reviewItems}
         canSort={today.canSort}
       />
+
+      {/* Pebble noticed something you keep coming back to, and asks before
+          making it a thread. One question at a time. */}
+      {suggestion ? <ThreadSuggestionCard suggestion={suggestion} /> : null}
 
       <section className="animate-fade-in">
         <SectionLabel>Thoughts today</SectionLabel>

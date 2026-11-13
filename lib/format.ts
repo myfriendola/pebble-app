@@ -61,3 +61,19 @@ export function formatDue(iso: string | null): string | null {
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+// "Oct 3" — for citations and thread dates.
+export function shortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// "5 thoughts, 3 ideas and a task" — counts read the way a person would say them.
+export function countPhrase(parts: [number, string, string][]): string {
+  const words = parts
+    .filter(([n]) => n > 0)
+    .map(([n, one, many]) => (n === 1 ? `a${/^[aeiou]/i.test(one) ? "n" : ""} ${one}` : `${n} ${many}`));
+  if (words.length <= 1) return words[0] ?? "";
+  return `${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`;
+}

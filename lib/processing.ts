@@ -11,7 +11,9 @@ import { SORT_SYSTEM, buildSortUser } from "./prompts/sort";
 import { SUMMARIZE_SYSTEM, buildSummarizeUser } from "./prompts/summarize";
 import { GROUP_SYSTEM, buildGroupUser } from "./prompts/group";
 import { startOfAppTodayIso, appTodayStr } from "./time";
-import type { DigestKind, SortResult, SummaryResult } from "./types";
+import { addThreadItems, threadsForSort } from "./threads";
+import { noticeThreads } from "./threadWork";
+import type { DigestKind, ItemRef, SortResult, SummaryResult } from "./types";
 
 const CONFIDENCE_FLOOR = 0.6;
 
@@ -142,6 +144,7 @@ export interface FiledItem {
   domain: "work" | "life" | null;
   text: string;
   due: string | null;
+  threads?: string[]; // titles of the threads it joined
 }
 
 // Sort one capture and file it into thoughts / ideas / work_tasks / life_tasks
@@ -154,7 +157,10 @@ export async function sortAndFileCapture(
   capture: { id: string; transcript: string; captured_at: string },
   vocabulary?: string[],
 ): Promise<{ committed: number; review: number; ok: boolean; filed: FiledItem[] }> {
-  const vocab = vocabulary ?? (await loadThemeVocabulary(supabase, 60, 600));
+  const [vocab, threads] = await Promise.all([
+    vocabulary ? Promise.resolve(vocabulary) : loadThemeVocabulary(supabase, 60, 600),
+    threadsForSort(supabase),
+  ]);
   let items: SortResult[] = [];
   try {
     // A sort normally takes a second or two. Give up well inside the function's
@@ -162,7 +168,7 @@ export async function sortAndFileCapture(
     // rather than killed mid-way.
     const parsed = await chatJson<unknown>(
       SORT_SYSTEM,
-      buildSortUser([capture.transcript], vocab),
+      buildSortUser([capture.transcript], vocab, threads),
       { temperature: 0.2, timeoutMs: 20_000, maxRetries: 1 },
     );
     items = normalizeSortArray(parsed);
@@ -177,6 +183,21 @@ export async function sortAndFileCapture(
   const toEmbed: { table: "thoughts" | "ideas"; id: string }[] = [];
   const filed: FiledItem[] = [];
   const domainOf = (d: unknown) => (d === "work" || d === "life" ? d : null);
+  // Join the threads the sorter says this note is about. Returns their titles.
+  const joinThreads = async (item: SortResult, ref: ItemRef | null): Promise<string[]> => {
+    if (!ref || !Array.isArray(item.threads) || threads.length === 0) return [];
+    const picked = Array.from(new Set(item.threads.map(Number)))
+      .map((n) => threads[n - 1])
+      .filter((t): t is (typeof threads)[number] => Boolean(t));
+    for (const t of picked) {
+      try {
+        await addThreadItems(supabase, t.id, [ref]);
+      } catch {
+        /* threads are best-effort */
+      }
+    }
+    return picked.map((t) => t.title);
+  };
 
   for (const item of items) {
     const confidence = typeof item.confidence === "number" ? item.confidence : 0;
@@ -193,19 +214,25 @@ export async function sortAndFileCapture(
 
     if (item.type === "task") {
       const table = item.domain === "work" ? "work_tasks" : "life_tasks";
-      await supabase.from(table).insert({
-        action: item.action ?? capture.transcript,
-        source_quote: item.source_quote ?? capture.transcript,
-        due: item.due ?? null,
-        priority: item.priority ?? null,
-        status: "open",
-        captured_at: capture.captured_at,
-      });
+      const { data: row } = await supabase
+        .from(table)
+        .insert({
+          action: item.action ?? capture.transcript,
+          source_quote: item.source_quote ?? capture.transcript,
+          due: item.due ?? null,
+          priority: item.priority ?? null,
+          status: "open",
+          captured_at: capture.captured_at,
+        })
+        .select("id")
+        .single();
+      const kind = table === "work_tasks" ? "work_task" : "life_task";
       filed.push({
         kind: "task",
         domain: domainOf(item.domain) ?? "life",
         text: item.action ?? capture.transcript,
         due: item.due ?? null,
+        threads: await joinThreads(item, row ? { kind, id: (row as { id: string }).id } : null),
       });
       committed += 1;
     } else if (item.type === "idea") {
@@ -220,7 +247,13 @@ export async function sortAndFileCapture(
         .select("id")
         .single();
       if (row) toEmbed.push({ table: "ideas", id: (row as { id: string }).id });
-      filed.push({ kind: "idea", domain: domainOf(item.domain), text: capture.transcript, due: null });
+      filed.push({
+        kind: "idea",
+        domain: domainOf(item.domain),
+        text: capture.transcript,
+        due: null,
+        threads: await joinThreads(item, row ? { kind: "idea", id: (row as { id: string }).id } : null),
+      });
       committed += 1;
     } else {
       const { data: row } = await supabase
@@ -233,7 +266,13 @@ export async function sortAndFileCapture(
         .select("id")
         .single();
       if (row) toEmbed.push({ table: "thoughts", id: (row as { id: string }).id });
-      filed.push({ kind: "thought", domain: domainOf(item.domain), text: capture.transcript, due: null });
+      filed.push({
+        kind: "thought",
+        domain: domainOf(item.domain),
+        text: capture.transcript,
+        due: null,
+        threads: await joinThreads(item, row ? { kind: "thought", id: (row as { id: string }).id } : null),
+      });
       committed += 1;
     }
   }
@@ -296,6 +335,10 @@ export async function runNightly(
 
   // Keep the theme groups fresh for the filter (best-effort, once a run).
   await regroupThemes(supabase);
+
+  // Look for a subject worth its own thread, and ask about it on Today
+  // (best-effort; one question at a time).
+  await noticeThreads(supabase);
 
   // Fill in embeddings for any notes still missing one (no-op unless semantic
   // search is enabled), so older captures become findable over a few nights.
