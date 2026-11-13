@@ -32,6 +32,7 @@ You'll get their notes from the last 30 days, numbered, each with its date and k
 
 Not subjects: passing moods, broad categories ("work", "life", "family", "ideas"), or one-off errands.
 A note belongs to a subject only if it is clearly about it, even when it doesn't use the name (e.g. "the app's onboarding" when they're building Throughline).
+Notes are transcribed from speech, so names are often misheard (a project called "Neimo" may appear as "Nemo"). Treat clear variants as the same subject, and title it with the person's own spelling when it's listed under "Their names".
 Skip any subject already covered by an existing thread or listed as declined.
 
 Return ONLY JSON:
@@ -40,14 +41,16 @@ Return ONLY JSON:
 - title: what they call it, written the way they would
 - named: true only for a specific named thing
 - notes: every note number that belongs
-At most 3 subjects, strongest first. Return {"subjects":[]} if nothing qualifies.`;
+At most 5 subjects, strongest first. Return {"subjects":[]} if nothing qualifies.`;
 
 export function buildNoticeUser(
   notes: PromptNote[],
   existing: string[],
   declined: string[],
+  names: string[] = [],
 ): string {
   const parts = [`Notes:\n${formatPromptNotes(notes)}`];
+  if (names.length) parts.push(`Their names (the person's own spelling for people, projects and places): ${names.join(", ")}`);
   if (existing.length) parts.push(`Existing threads (skip these): ${existing.join("; ")}`);
   if (declined.length) parts.push(`Declined (never suggest): ${declined.join("; ")}`);
   return parts.join("\n\n");

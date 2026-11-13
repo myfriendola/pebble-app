@@ -138,3 +138,15 @@ create table if not exists thread_suggestions (
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
 );
+
+-- ============================================================================
+-- Words Pebble should know
+-- Names the ring's transcription keeps mishearing ("Neimo" arriving as "Nemo").
+-- New notes are corrected as they arrive. Safe to run more than once.
+-- ============================================================================
+create table if not exists vocabulary (
+  id          uuid primary key default gen_random_uuid(),
+  word        text not null unique,
+  heard_as    text[] not null default '{}',
+  created_at  timestamptz not null default now()
+);

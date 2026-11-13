@@ -33,7 +33,7 @@ export default async function ThreadsPage() {
         </div>
       ) : (
         <div className="space-y-10">
-          {suggestion ? <ThreadSuggestionCard suggestion={suggestion} /> : null}
+          {suggestion ? <ThreadSuggestionCard key={suggestion.id} suggestion={suggestion} /> : null}
 
           {threads.length === 0 ? (
             suggestion ? null : (

@@ -5,6 +5,9 @@ import { NotificationsToggle } from "@/components/NotificationsToggle";
 import { CalendarSubscribe } from "@/components/CalendarSubscribe";
 import { ExportLinks } from "@/components/ExportLinks";
 import { ProcessNowButton } from "@/components/ProcessNowButton";
+import { WordsEditor, type WordRow } from "@/components/WordsEditor";
+import { getSupabase } from "@/lib/supabase";
+import { countPastNotes, loadVocabulary } from "@/lib/vocabulary";
 
 export const dynamic = "force-dynamic";
 // "Process now" runs the whole nightly pass from this page (sorting, the
@@ -32,7 +35,16 @@ function Section({
 }
 
 export default async function SettingsPage() {
-  const lastCapture = await getLastCapture();
+  const supabase = getSupabase();
+  const [lastCapture, vocab] = await Promise.all([
+    getLastCapture(),
+    supabase ? loadVocabulary(supabase) : Promise.resolve({ words: [], missing: false }),
+  ]);
+  const words: WordRow[] = supabase
+    ? await Promise.all(
+        vocab.words.map(async (w) => ({ ...w, pastCount: await countPastNotes(supabase, w) })),
+      )
+    : [];
 
   return (
     <div>
@@ -45,6 +57,13 @@ export default async function SettingsPage() {
       <div className="space-y-10 border-t border-hairline pt-8">
         <Section label="Capture" description="When your ring last reached Pebble.">
           <CaptureHealth last={lastCapture} />
+        </Section>
+
+        <Section
+          label="Words Pebble should know"
+          description="Names your ring tends to mishear. Pebble corrects them as notes arrive, and can fix past notes too."
+        >
+          <WordsEditor initial={words} missing={vocab.missing} />
         </Section>
 
         <Section

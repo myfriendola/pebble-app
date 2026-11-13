@@ -10,6 +10,7 @@ import { getSupabase } from "@/lib/supabase";
 import { env, hasSupabase, hasOpenAI } from "@/lib/env";
 import { sortAndFileCapture, type FiledItem } from "@/lib/processing";
 import { arrivalNotice, pushEnabled, sendPush } from "@/lib/push";
+import { applyVocabulary, loadVocabulary } from "@/lib/vocabulary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -147,8 +148,8 @@ export async function POST(req: Request) {
     payload = null;
   }
 
-  const transcript = extractTranscript(payload);
-  if (!transcript) {
+  const heard = extractTranscript(payload);
+  if (!heard) {
     return NextResponse.json({ error: "no transcription found in payload" }, { status: 400 });
   }
   const captured_at = extractTimestamp(payload);
@@ -157,6 +158,11 @@ export async function POST(req: Request) {
   if (!supabase) {
     return NextResponse.json({ error: "database not configured" }, { status: 500 });
   }
+
+  // Fix names the transcription keeps mishearing ("Nemo" → "Neimo") before
+  // anything else sees the note. No words set up (or no table yet): unchanged.
+  const { words } = await loadVocabulary(supabase);
+  const transcript = applyVocabulary(heard, words);
 
   // Guard against duplicate webhook deliveries: the ring (or its platform) can
   // send the same recording more than once. If an identical transcript arrived

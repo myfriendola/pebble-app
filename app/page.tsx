@@ -53,7 +53,7 @@ export default async function TodayPage() {
 
       {/* Pebble noticed something you keep coming back to, and asks before
           making it a thread. One question at a time. */}
-      {suggestion ? <ThreadSuggestionCard suggestion={suggestion} /> : null}
+      {suggestion ? <ThreadSuggestionCard key={suggestion.id} suggestion={suggestion} /> : null}
 
       <section className="animate-fade-in">
         <SectionLabel>Thoughts today</SectionLabel>

@@ -72,6 +72,15 @@ design is always visible; once Supabase is connected they show your real data.
   next moves, each citing the notes behind it. It rewrites itself once 3 new
   notes have joined. Swipe a note for *Not about this*; it stays where it lives.
   Needs the Threads section of `migration.sql`.
+- **Threads you missed?** Each look saves every subject that qualifies (up to
+  five) and asks about them one at a time, strongest first ("1 of 3"). *Look
+  now* on the Threads tab looks straight away and says what it found, or what
+  came closest and why it didn't ask.
+- **Words Pebble should know** *(Settings)*. Names the ring's transcription
+  keeps mishearing, e.g. *Neimo*, often heard as *Nemo*. New notes are
+  corrected as they arrive (whole words only, so "anemone" is safe), past notes
+  can be fixed in one tap, and the names help Pebble notice threads. Needs the
+  *Words Pebble should know* section of `migration.sql`.
 - **Navigation.** Five tabs (Today, Thoughts, Ideas, Threads, Tasks); the one
   you're on names itself. Past reflections live under the moon in the top bar,
   which shows a small dot when a new weekly or monthly one is waiting.
