@@ -61,6 +61,9 @@ export function arrivalNotice(transcript: string, filed: FiledItem[] = []): Push
   } else if (first?.kind === "review") {
     title = "Not sure where this one goes";
   }
+  // "Kept as a thought · Throughline" when it joined a thread.
+  const thread = first?.threads?.[0];
+  if (thread && first?.kind !== "review") title = `${title} \u00b7 ${thread}`;
   return { title, body: clip(body, 140), url: "/", tag: ARRIVAL_TAG, kind: "arrival" };
 }
 

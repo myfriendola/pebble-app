@@ -168,23 +168,29 @@ async function applyFields(supabase: Supa, kind: ItemKind, id: string, text: str
   }
 }
 
-async function insertItem(supabase: Supa, kind: ItemKind, text: string, r: SortResult, capturedAt: string) {
-  if (kind === "thought") {
-    await supabase.from("thoughts").insert({ text, themes: themesOf(r), captured_at: capturedAt });
-  } else if (kind === "idea") {
-    await supabase
-      .from("ideas")
-      .insert({ text, themes: themesOf(r), domain: domainOf(r), captured_at: capturedAt });
-  } else {
-    await supabase.from(TABLE[kind]).insert({
-      action: r.action ?? text,
-      source_quote: text,
-      due: r.due ?? null,
-      priority: r.priority ?? null,
-      status: "open",
-      captured_at: capturedAt,
-    });
-  }
+// Returns the new row's id (null if the insert failed).
+async function insertItem(
+  supabase: Supa,
+  kind: ItemKind,
+  text: string,
+  r: SortResult,
+  capturedAt: string,
+): Promise<string | null> {
+  const row: Record<string, unknown> =
+    kind === "thought"
+      ? { text, themes: themesOf(r), captured_at: capturedAt }
+      : kind === "idea"
+        ? { text, themes: themesOf(r), domain: domainOf(r), captured_at: capturedAt }
+        : {
+            action: r.action ?? text,
+            source_quote: text,
+            due: r.due ?? null,
+            priority: r.priority ?? null,
+            status: "open",
+            captured_at: capturedAt,
+          };
+  const { data } = await supabase.from(TABLE[kind]).insert(row).select("id").single();
+  return (data as { id?: string } | null)?.id ?? null;
 }
 
 export type ReanalyzeResult =
@@ -230,6 +236,12 @@ export async function deleteItem(kind: ItemKind, id: string): Promise<{ ok: bool
   const supabase = getSupabase();
   if (!supabase || !UUID_RE.test(id)) return { ok: false };
   await supabase.from(TABLE[kind]).delete().eq("id", id);
+  // And let go of it in any thread it belonged to.
+  try {
+    await supabase.from("thread_items").delete().eq("item_kind", kind).eq("item_id", id);
+  } catch {
+    /* threads not set up yet */
+  }
   revalidateItems();
   return { ok: true };
 }
@@ -254,7 +266,19 @@ export async function moveItem(
     .maybeSingle();
   const capturedAt = (row as { captured_at?: string } | null)?.captured_at ?? new Date().toISOString();
 
-  await insertItem(supabase, toKind, text, result, capturedAt);
+  const newId = await insertItem(supabase, toKind, text, result, capturedAt);
+  // A note keeps its threads when it moves (e.g. a thought re-filed as a task).
+  if (newId) {
+    try {
+      await supabase
+        .from("thread_items")
+        .update({ item_kind: toKind, item_id: newId })
+        .eq("item_kind", fromKind)
+        .eq("item_id", id);
+    } catch {
+      /* threads not set up yet */
+    }
+  }
   await supabase.from(TABLE[fromKind]).delete().eq("id", id);
   revalidateItems();
   return { ok: true };

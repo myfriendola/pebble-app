@@ -24,13 +24,20 @@ export async function GET() {
   }
 
   try {
-    const [captures, review] = await Promise.all([
+    const [captures, review, reflection] = await Promise.all([
       supabase
         .from("captures")
         .select("id, processed, created_at")
         .order("created_at", { ascending: false })
         .limit(8),
       supabase.from("review_queue").select("id", { count: "exact", head: true }),
+      // The newest weekly / monthly reflection, for the dot on the moon.
+      supabase
+        .from("digests")
+        .select("created_at")
+        .in("kind", ["weekly", "monthly"])
+        .order("created_at", { ascending: false })
+        .limit(1),
     ]);
     const rows = (captures.data ?? []) as { id: string; processed: boolean; created_at: string }[];
     const now = Date.now();
@@ -42,7 +49,10 @@ export async function GET() {
       (r) => !r.processed && now - new Date(r.created_at).getTime() < FRESH_MS,
     );
 
-    return NextResponse.json({ v, latest: rows[0]?.id ?? null, settling }, noStore);
+    const reflectionAt =
+      ((reflection.data ?? []) as { created_at: string }[])[0]?.created_at ?? null;
+
+    return NextResponse.json({ v, latest: rows[0]?.id ?? null, settling, reflectionAt }, noStore);
   } catch {
     return NextResponse.json({ v: null, latest: null, settling: false }, noStore);
   }

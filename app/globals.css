@@ -496,3 +496,17 @@
     display: none;
   }
 }
+
+/* A cited note, briefly lit when you jump to it from Pebble's read. */
+.cite-flash > div:last-child {
+  animation: cite-flash 1.8s ease;
+}
+@keyframes cite-flash {
+  0%,
+  35% {
+    background-color: theme("colors.sage.tint");
+  }
+  100% {
+    background-color: theme("colors.paper");
+  }
+}

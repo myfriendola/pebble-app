@@ -3,6 +3,8 @@
 // sparks get their own home alongside tasks and thoughts. The rest of the
 // wording is kept faithful to the original.
 
+import { threadsForSortPrompt } from "./threads";
+
 export const SORT_SYSTEM = `You sort a person's spoken brain-dump notes. For each note, decide:
 - type: "task" if it's something to do; "idea" if it's a spark worth exploring or
   making later (a proposal, a "what if", something to create, build, or try);
@@ -20,12 +22,16 @@ Return ONLY a JSON array, one object per note, no prose.`;
 
 // Build the user message for a batch of note transcripts, optionally priming the
 // model with the tags already in use so it reuses them instead of inventing
-// near-duplicates.
-export function buildSortUser(transcripts: string[], vocabulary?: string[]): string {
+// near-duplicates, and with the person's threads so each note can join them.
+export function buildSortUser(
+  transcripts: string[],
+  vocabulary?: string[],
+  threads?: { title: string; description: string | null }[],
+): string {
   const notes = transcripts.map((t, i) => `${i + 1}. ${t}`).join("\n");
   const vocab =
     vocabulary && vocabulary.length > 0
       ? `\n\nExisting tags (reuse an exact match whenever one fits):\n${vocabulary.join(", ")}`
       : "";
-  return `Notes:\n${notes}${vocab}`;
+  return `Notes:\n${notes}${vocab}${threadsForSortPrompt(threads ?? [])}`;
 }

@@ -63,7 +63,10 @@ export function LiveRefresh() {
           v: string | null;
           latest: string | null;
           settling: boolean;
+          reflectionAt?: string | null;
         };
+        // Share the pulse (e.g. the top bar's dot for a new reflection).
+        window.dispatchEvent(new CustomEvent("pebble:pulse", { detail: data }));
         if (!data.v) return;
 
         if (lastV.current !== null && data.v !== lastV.current) {

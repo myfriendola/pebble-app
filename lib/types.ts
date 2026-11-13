@@ -89,10 +89,80 @@ export interface SortResult {
   source_quote?: string | null;
   themes?: string[];
   confidence: number;
+  // Numbers of the person's threads this note is clearly about (when given).
+  threads?: number[];
 }
 
 export interface SummaryResult {
   narrative: string;
   questions: string[];
   themes: string[];
+}
+
+// ── Threads ─────────────────────────────────────────────────────────────────
+// A home for a subject the person keeps coming back to. Notes stay where they
+// are (Thoughts / Ideas / Tasks); a thread collects them.
+
+export type ThreadItemKind = "thought" | "idea" | "work_task" | "life_task";
+
+export interface ItemRef {
+  kind: ThreadItemKind;
+  id: string;
+}
+
+// One point in Pebble's read, with the notes it draws on.
+export interface ReadPoint {
+  text: string;
+  why?: string;
+  cites: ItemRef[];
+}
+
+export interface ThreadRead {
+  gist: string;
+  recurring: ReadPoint[];
+  tensions: ReadPoint[];
+  shifts: ReadPoint[];
+  questions: ReadPoint[];
+  moves: ReadPoint[];
+}
+
+export interface Thread {
+  id: string;
+  title: string;
+  description: string | null;
+  read: ThreadRead | null;
+  read_at: string | null;
+  read_item_count: number;
+  created_at: string;
+}
+
+// A note as it appears on a thread page.
+export interface ThreadNote {
+  kind: ThreadItemKind;
+  id: string;
+  text: string;
+  quote: string | null; // a task's original spoken words
+  themes: string[];
+  status: string | null; // tasks only
+  captured_at: string;
+}
+
+export interface ThreadSummary {
+  id: string;
+  title: string;
+  description: string | null;
+  noteCount: number;
+  taskCount: number;
+  lastAddedAt: string | null;
+  created_at: string;
+}
+
+export interface ThreadSuggestion {
+  id: string;
+  title: string;
+  description: string | null;
+  note_count: number;
+  first_at: string | null;
+  kinds: { thoughts: number; ideas: number; tasks: number };
+  previews: string[];
 }
