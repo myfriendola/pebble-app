@@ -136,6 +136,14 @@ export async function loadThemeVocabulary(
   }
 }
 
+// Where a sorted capture ended up — enough to tell the person in a notification.
+export interface FiledItem {
+  kind: "task" | "thought" | "idea" | "review";
+  domain: "work" | "life" | null;
+  text: string;
+  due: string | null;
+}
+
 // Sort one capture and file it into thoughts / ideas / work_tasks / life_tasks
 // (or review_queue when low-confidence), then mark it processed. Shared by the
 // nightly sweep and by sort-on-capture in the webhook. On a sort error the
@@ -145,7 +153,7 @@ export async function sortAndFileCapture(
   supabase: SupabaseClient,
   capture: { id: string; transcript: string; captured_at: string },
   vocabulary?: string[],
-): Promise<{ committed: number; review: number; ok: boolean }> {
+): Promise<{ committed: number; review: number; ok: boolean; filed: FiledItem[] }> {
   const vocab = vocabulary ?? (await loadThemeVocabulary(supabase, 60, 600));
   let items: SortResult[] = [];
   try {
@@ -159,7 +167,7 @@ export async function sortAndFileCapture(
     );
     items = normalizeSortArray(parsed);
   } catch {
-    return { committed: 0, review: 0, ok: false };
+    return { committed: 0, review: 0, ok: false, filed: [] };
   }
 
   let committed = 0;
@@ -167,6 +175,8 @@ export async function sortAndFileCapture(
   // Embeddings only power search, so they run after the note is marked
   // settled. The screens never wait on them.
   const toEmbed: { table: "thoughts" | "ideas"; id: string }[] = [];
+  const filed: FiledItem[] = [];
+  const domainOf = (d: unknown) => (d === "work" || d === "life" ? d : null);
 
   for (const item of items) {
     const confidence = typeof item.confidence === "number" ? item.confidence : 0;
@@ -177,6 +187,7 @@ export async function sortAndFileCapture(
         best_guess: item as unknown as Record<string, unknown>,
       });
       review += 1;
+      filed.push({ kind: "review", domain: domainOf(item.domain), text: capture.transcript, due: null });
       continue;
     }
 
@@ -189,6 +200,12 @@ export async function sortAndFileCapture(
         priority: item.priority ?? null,
         status: "open",
         captured_at: capture.captured_at,
+      });
+      filed.push({
+        kind: "task",
+        domain: domainOf(item.domain) ?? "life",
+        text: item.action ?? capture.transcript,
+        due: item.due ?? null,
       });
       committed += 1;
     } else if (item.type === "idea") {
@@ -203,6 +220,7 @@ export async function sortAndFileCapture(
         .select("id")
         .single();
       if (row) toEmbed.push({ table: "ideas", id: (row as { id: string }).id });
+      filed.push({ kind: "idea", domain: domainOf(item.domain), text: capture.transcript, due: null });
       committed += 1;
     } else {
       const { data: row } = await supabase
@@ -215,13 +233,14 @@ export async function sortAndFileCapture(
         .select("id")
         .single();
       if (row) toEmbed.push({ table: "thoughts", id: (row as { id: string }).id });
+      filed.push({ kind: "thought", domain: domainOf(item.domain), text: capture.transcript, due: null });
       committed += 1;
     }
   }
 
   await supabase.from("captures").update({ processed: true }).eq("id", capture.id);
   for (const e of toEmbed) await embedRow(supabase, e.table, e.id, capture.transcript);
-  return { committed, review, ok: true };
+  return { committed, review, ok: true, filed };
 }
 
 // Sort captures that arrived but never got filed (the background sort failed or

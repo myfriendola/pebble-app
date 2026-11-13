@@ -13,12 +13,14 @@ function urlBase64ToArrayBuffer(base64: string): ArrayBuffer {
 }
 
 type State = "loading" | "unsupported" | "ios-install" | "blocked" | "off" | "on" | "working";
-type Prefs = { reflection: boolean; reminders: boolean };
-const DEFAULT_PREFS: Prefs = { reflection: true, reminders: true };
+type Prefs = { reflection: boolean; reminders: boolean; arrivals: boolean };
+const DEFAULT_PREFS: Prefs = { reflection: true, reminders: true, arrivals: true };
 
+// In the order they arrive through a day: morning, as you go, evening.
 const TYPE_ROWS: { key: keyof Prefs; label: string; hint: string }[] = [
-  { key: "reflection", label: "Daily reflection", hint: "when the evening reflection has settled" },
   { key: "reminders", label: "To-dos due today", hint: "a gentle morning count of what's due" },
+  { key: "arrivals", label: "Notes from your ring", hint: "a quiet receipt of where each one landed" },
+  { key: "reflection", label: "Daily reflection", hint: "when the evening reflection has settled" },
 ];
 
 export function NotificationsToggle() {

@@ -108,7 +108,7 @@ create table if not exists theme_groups (
 create table if not exists push_subscriptions (
   endpoint     text primary key,
   subscription jsonb not null,
-  prefs        jsonb not null default '{"reflection":true,"reminders":true}'::jsonb,
+  prefs        jsonb not null default '{"reflection":true,"reminders":true,"arrivals":true}'::jsonb,
   created_at   timestamptz not null default now()
 );
 

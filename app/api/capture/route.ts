@@ -8,7 +8,8 @@ import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { getSupabase } from "@/lib/supabase";
 import { env, hasSupabase, hasOpenAI } from "@/lib/env";
-import { sortAndFileCapture } from "@/lib/processing";
+import { sortAndFileCapture, type FiledItem } from "@/lib/processing";
+import { arrivalNotice, pushEnabled, sendPush } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -215,13 +216,29 @@ export async function POST(req: Request) {
   // alive for that work on Vercel (and is a harmless no-op in local dev, where
   // the server stays up anyway). If the sort fails, the note stays
   // processed = false and is retried from Today or by the nightly sweep.
+  //
+  // Once sorted, devices that opted into "arrivals" get a quiet receipt saying
+  // where the note went. Only live arrivals notify: the nightly sweep and
+  // "sort now" never do.
   const sorting = Boolean(inserted && hasOpenAI);
-  if (inserted && hasOpenAI) {
+  if (inserted && (hasOpenAI || pushEnabled())) {
     const capture = inserted;
     waitUntil(
-      sortAndFileCapture(supabase, capture).catch((e) => {
-        console.error("sort-on-capture failed:", e);
-      }),
+      (async () => {
+        let filed: FiledItem[] = [];
+        if (hasOpenAI) {
+          try {
+            filed = (await sortAndFileCapture(supabase, capture)).filed;
+          } catch (e) {
+            console.error("sort-on-capture failed:", e);
+          }
+        }
+        try {
+          await sendPush(arrivalNotice(capture.transcript, filed), { type: "arrivals" });
+        } catch (e) {
+          console.error("arrival notification failed:", e);
+        }
+      })(),
     );
   }
 

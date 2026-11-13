@@ -3,17 +3,15 @@
 
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { DEFAULT_PREFS, type NotifType } from "@/lib/push";
+import { DEFAULT_PREFS, NOTIF_TYPES, type NotifType } from "@/lib/push";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const TYPES: NotifType[] = ["reflection", "reminders"];
-
 function clean(input: unknown): Record<NotifType, boolean> {
   const p = (input ?? {}) as Record<string, unknown>;
   const out = { ...DEFAULT_PREFS };
-  for (const t of TYPES) if (typeof p[t] === "boolean") out[t] = p[t] as boolean;
+  for (const t of NOTIF_TYPES) if (typeof p[t] === "boolean") out[t] = p[t] as boolean;
   return out;
 }
 

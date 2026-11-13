@@ -46,7 +46,7 @@ export default async function SettingsPage() {
 
         <Section
           label="Notifications"
-          description="A nudge when the day's reflection settles, and a gentle morning count of what's due."
+          description="A gentle count of what's due each morning, a quiet receipt as each note lands, and a nudge when the day's reflection settles."
         >
           <NotificationsToggle />
         </Section>

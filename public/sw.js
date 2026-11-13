@@ -99,6 +99,13 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(req).catch(() => caches.match(req)));
 });
 
+// WebKit (iPhone and iPad home-screen apps, Safari) revokes a push
+// subscription if a push ever arrives without a notification being shown, so
+// there we always show one. Other browsers may stay quiet while the app is
+// already open and focused.
+const UA = (self.navigator && self.navigator.userAgent) || "";
+const MUST_SHOW = /AppleWebKit/.test(UA) && !/Chrome|Chromium|Android/.test(UA);
+
 self.addEventListener("push", (event) => {
   let data = {};
   try {
@@ -106,7 +113,11 @@ self.addEventListener("push", (event) => {
   } catch (e) {
     data = { body: event.data && event.data.text ? event.data.text() : "" };
   }
-  const title = data.title || "Pebble";
+  event.waitUntil(showPush(data));
+});
+
+async function showPush(data) {
+  let title = data.title || "Pebble";
   const options = {
     body: data.body || "",
     icon: "/icon-192.png",
@@ -114,8 +125,34 @@ self.addEventListener("push", (event) => {
     tag: data.tag,
     data: { url: data.url || "/" },
   };
-  event.waitUntil(self.registration.showNotification(title, options));
-});
+
+  // A note just came in from the ring.
+  if (data.kind === "arrival") {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    // Any open Pebble refreshes now rather than at its next check.
+    for (const w of windows) w.postMessage({ type: "pebble:arrival" });
+    // Already looking at the app? The ripple says it; skip the banner.
+    const watching = windows.some((w) => w.visibilityState === "visible" && w.focused);
+    if (watching && !MUST_SHOW) return;
+
+    // Fold into the one already showing ("3 notes landed") instead of piling
+    // up. Same tag, so it replaces quietly: only the first one buzzes.
+    let count = 1;
+    try {
+      const shown = await self.registration.getNotifications({ tag: data.tag });
+      for (const n of shown) count = Math.max(count, ((n.data && n.data.count) || 1) + 1);
+    } catch (e) {
+      /* getNotifications unsupported: show it on its own */
+    }
+    options.data.count = count;
+    if (count > 1) {
+      options.body = `${title} \u00b7 ${options.body}`;
+      title = `${count} notes landed`;
+    }
+  }
+
+  return self.registration.showNotification(title, options);
+}
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
