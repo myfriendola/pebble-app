@@ -218,20 +218,22 @@ export async function getThreadPage(id: string): Promise<ThreadPage | null> {
   }
 }
 
-// The one subject Pebble is currently asking about, if any.
+// The subject Pebble is asking about now (the strongest waiting), if any, and
+// how many more questions are queued behind it.
 export async function getPendingSuggestion(): Promise<ThreadSuggestion | null> {
   const supabase = getSupabase();
   if (!supabase) return null;
   try {
-    const { data, error } = await supabase
+    const { data: all, error } = await supabase
       .from("thread_suggestions")
-      .select("id, title, description, items, note_count, first_at")
-      .eq("status", "pending")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error || !data) return null;
-    const s = data as {
+      .select("id, title, description, items, note_count, first_at, updated_at")
+      .eq("status", "pending");
+    if (error || !all || all.length === 0) return null;
+    const waiting = (all as { note_count: number; updated_at: string }[]).sort(
+      (a, b) => b.note_count - a.note_count || (a.updated_at < b.updated_at ? -1 : 1),
+    );
+    const data = waiting[0];
+    const s = data as unknown as {
       id: string;
       title: string;
       description: string | null;
@@ -254,6 +256,7 @@ export async function getPendingSuggestion(): Promise<ThreadSuggestion | null> {
         tasks: notes.filter((n) => isTask(n.kind)).length,
       },
       previews: (words.length ? words : notes).slice(0, 2).map((n) => n.text),
+      queued: waiting.length - 1,
     };
   } catch {
     return null;

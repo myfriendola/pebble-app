@@ -16,6 +16,7 @@ import {
   type PromptNote,
 } from "./prompts/threads";
 import { addThreadItems, isTask, loadNotes, refKey } from "./threads";
+import { loadVocabulary } from "./vocabulary";
 import type { ItemRef, ReadPoint, ThreadNote, ThreadRead } from "./types";
 
 type Db = SupabaseClient;
@@ -87,25 +88,34 @@ export interface NearMiss {
   waitUntil?: number;
 }
 export type NoticeResult =
-  | { status: "asked"; title: string }
-  | { status: "already-asking"; title: string }
+  | { status: "asked"; titles: string[] }
+  | { status: "already-asking"; title: string; waiting: number }
   | { status: "nothing"; near: NearMiss[] }
   | { status: "too-few-notes"; count: number }
   | { status: "not-set-up" }
   | { status: "no-ai" }
   | { status: "error" };
 
+// Everything that qualifies is saved (up to 5 a look), strongest first, and
+// asked about one at a time: the next card appears once you answer this one.
+const MAX_NEW_PER_LOOK = 5;
+
 export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
   if (!hasOpenAI) return { status: "no-ai" };
   try {
+    // Their own spellings (Words Pebble should know) help match misheard names.
+    const names = (await loadVocabulary(supabase)).words.map((w) => w.word);
     const open = await supabase
       .from("thread_suggestions")
-      .select("id, title")
-      .eq("status", "pending")
-      .limit(1);
+      .select("id, title, note_count")
+      .eq("status", "pending");
     if (open.error) return { status: "not-set-up" };
-    const asking = (open.data ?? []) as { title: string }[];
-    if (asking.length > 0) return { status: "already-asking", title: asking[0].title };
+    const asking = ((open.data ?? []) as { title: string; note_count: number }[]).sort(
+      (a, b) => b.note_count - a.note_count,
+    );
+    if (asking.length > 0) {
+      return { status: "already-asking", title: asking[0].title, waiting: asking.length - 1 };
+    }
 
     const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const recent = (await loadNotes(supabase, { since, limit: 400 })).reverse(); // oldest first
@@ -140,7 +150,7 @@ export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
     const { prompt, byNumber } = numbered(recent);
     const parsed = await chatJson<{
       subjects?: { key?: string; title?: string; named?: boolean; description?: string; notes?: number[] }[];
-    }>(NOTICE_SYSTEM, buildNoticeUser(prompt, existing, declined), {
+    }>(NOTICE_SYSTEM, buildNoticeUser(prompt, existing, declined, names), {
       temperature: 0.2,
       timeoutMs: 40_000,
       maxRetries: 1,
@@ -148,7 +158,9 @@ export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
 
     const takenTitles = new Set(existing.map(normKey));
     const near: NearMiss[] = [];
+    const asked: string[] = [];
     for (const s of parsed?.subjects ?? []) {
+      if (asked.length >= MAX_NEW_PER_LOOK) break;
       const title = (s.title ?? "").trim();
       if (!title) continue;
       const key = normKey(s.key || title);
@@ -200,8 +212,10 @@ export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
       };
       if (prior) await supabase.from("thread_suggestions").update(row).eq("id", prior.id);
       else await supabase.from("thread_suggestions").insert(row);
-      return { status: "asked", title };
+      asked.push(title);
+      takenTitles.add(normKey(title)); // the same subject twice in one answer
     }
+    if (asked.length > 0) return { status: "asked", titles: asked };
     return { status: "nothing", near: near.slice(0, 3) };
   } catch (e) {
     console.error("noticeThreads failed:", e);
@@ -209,13 +223,20 @@ export async function noticeThreads(supabase: Db): Promise<NoticeResult> {
   }
 }
 
+const listJoin = (xs: string[]) =>
+  xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs[xs.length - 1]}`;
+
 // One plain sentence about what noticing found, for Settings and the Threads tab.
 export function describeNotice(r: NoticeResult): string {
   switch (r.status) {
     case "asked":
-      return `Noticed ${r.title}. Pebble is asking about it on Today.`;
+      return r.titles.length === 1
+        ? `Noticed ${r.titles[0]}. Pebble is asking about it on Today.`
+        : `Noticed ${listJoin(r.titles)}. Pebble will ask about them one at a time, starting on Today.`;
     case "already-asking":
-      return `Already asking about ${r.title}. Answer that first; one question at a time.`;
+      return r.waiting > 0
+        ? `Already asking about ${r.title}, with ${r.waiting} more after it. Answer those first; one question at a time.`
+        : `Already asking about ${r.title}. Answer that first; one question at a time.`;
     case "too-few-notes":
       return `Only ${r.count} note${r.count === 1 ? "" : "s"} in the last 30 days, not enough to see a pattern yet.`;
     case "not-set-up":

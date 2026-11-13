@@ -165,4 +165,5 @@ export interface ThreadSuggestion {
   first_at: string | null;
   kinds: { thoughts: number; ideas: number; tasks: number };
   previews: string[];
+  queued: number; // more questions waiting after this one
 }

@@ -29,11 +29,15 @@ export function ThreadSuggestionCard({ suggestion }: { suggestion: ThreadSuggest
     else setState("asking");
   }
 
+  // Acknowledge first; then (after a breath) record it, which brings in the
+  // next question if one is waiting.
   function answer(a: "snoozed" | "declined") {
     setState(a);
-    start(() => {
-      void answerSuggestion(s.id, a);
-    });
+    setTimeout(() => {
+      start(() => {
+        void answerSuggestion(s.id, a);
+      });
+    }, s.queued > 0 ? 1600 : 0);
   }
 
   if (state === "snoozed" || state === "declined") {
@@ -48,7 +52,9 @@ export function ThreadSuggestionCard({ suggestion }: { suggestion: ThreadSuggest
 
   return (
     <section className="animate-fade-in rounded-card bg-panel px-6 py-6 sm:px-7" aria-label="A thread worth making">
-      <div className="label mb-3">Noticed</div>
+      <div className="label mb-3">
+        Noticed{s.queued > 0 ? ` \u00b7 1 of ${s.queued + 1}` : ""}
+      </div>
       <p className="font-serif text-[19px] leading-[1.45] text-ink">
         You keep coming back to {s.title}.
       </p>
